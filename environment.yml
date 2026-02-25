@@ -1,0 +1,20 @@
+name: dcm
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - seaborn
+  - tqdm
+  - joblib
+  - pytest
+  - black
+  - ruff
+  - mypy
+  - pip
+  - pip:
+      - "jax[cpu]"
+      - numpyro
