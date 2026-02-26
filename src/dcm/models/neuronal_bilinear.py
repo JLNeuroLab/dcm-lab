@@ -65,7 +65,7 @@ class BilinearNeuronalModel:
         # Effective connectivity: A_eff(t) = A + Σ_j u_j(t) B_j
         # Using tensordot for speed/clarity:
         # u_t: (m,), B: (m,l,l) -> (l,l)
-        A_eff = p.A @ np.tensordot(u_t, p.B, axes=(0, 0))
+        A_eff = p.A + np.tensordot(u_t, p.B, axes=(0, 0))
 
         # z_dot = (A + Σ_j u_j(t) B_j) z + C u
         return A_eff @ z + p.C @ u_t
