@@ -1,5 +1,15 @@
-# Core neuronal (bilinear) DCM state equation:
-#   z_dot = (A + sum_j u_j(t) * B[j]) z + C u(t)
+# The model describes the transformation from neuronal activity z(t)
+# to BOLD signal through four hemodynamic state variables per region:
+    # s(t) : vasodilatory signal
+    # f(t) : normalized cerebral blood inflow
+    # v(t) : normalized venous blood volume
+    # q(t) : normalized deoxyhemoglobin content   
+# State equations (Friston et al., 2003, Eq. 3):
+#     s_dot = z - κ s - γ (f - 1)
+#     f_dot = s
+#     v_dot = (f - v^(1/α)) / τ
+#     q_dot = (f E(f, ρ)/ρ - v^(1/α) q / v) / τ
+# 
 
 from __future__ import annotations # This help defining type hints without python evaluating immediately (e.g def f(self) -> B:)
 import numpy as np
