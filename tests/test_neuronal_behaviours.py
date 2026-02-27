@@ -98,3 +98,33 @@ def test_modulatory_coupling():
     peak_on = np.max(Z_on[:, 1])
 
     assert peak_off < peak_on
+
+
+def test_linear_analytic_solution():
+    
+    l = 3
+    m = 1
+
+    lambdas = np.array([-0.5, -1.0, -2.0])
+    A = np.diag(lambdas)
+
+    B = np.zeros((m, l, l), dtype=float)
+    C = np.zeros((l, m), dtype=float)
+
+    params = BilinearParameters(A, B, C)
+    model = BilinearNeuronalModel(params)
+
+    def u(t: float):
+        return np.zeros((m,), dtype=float)
+    
+    t = np.linspace(0.0, 10.0, 200)
+    z0 = np.array([1.0, -2.0, 0.5], dtype=float)
+
+    Z_sim = simulate_neuronal(model, u, t, z0=z0)
+
+    # Analytical solution
+    Z_true = np.zeros_like(Z_sim)
+    for i in range(l):
+        Z_true[:, i] = z0[i] * np.exp(lambdas[i] * t)
+
+    assert np.allclose(Z_sim, Z_true, atol=1e-5)
