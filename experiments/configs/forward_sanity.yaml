@@ -1,4 +1,4 @@
-name: sim_sanity
+name: forward_sanity
 
 simulation:
   T: 100.0
