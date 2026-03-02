@@ -9,7 +9,9 @@
 #     f_dot = s
 #     v_dot = (f - v^(1/α)) / τ
 #     q_dot = (f E(f, ρ)/ρ - v^(1/α) q / v) / τ
-# 
+# BOLD observation equation (Eq. 4):
+
+    # y = V0 [ k1 (1 - q) + k2 (1 - q/v) + k3 (1 - v) ]
 
 from __future__ import annotations # This help defining type hints without python evaluating immediately (e.g def f(self) -> B:)
 import numpy as np
