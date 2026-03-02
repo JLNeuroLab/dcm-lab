@@ -13,4 +13,4 @@ dist/
 .vscode/
 
 # Experiment outputs
-results/runs
+results/
