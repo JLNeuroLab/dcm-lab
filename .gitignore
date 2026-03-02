@@ -11,3 +11,6 @@ dist/
 .ipynb_checkpoints/
 .DS_Store
 .vscode/
+
+# Experiment outputs
+results/runs
