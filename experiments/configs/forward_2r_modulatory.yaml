@@ -1,0 +1,57 @@
+name: forward_2r_modulatory
+
+simulation:
+  T: 120.0
+  dt: 0.1
+  solver:
+    method: RK45
+    rtol: 1e-6
+    atol: 1e-9
+
+model:
+  l: 2
+  m: 2
+
+inputs:
+  names: [u0, u1]
+
+  # Driving input: region 0 gets driven
+  u0:
+    type: boxcar
+    onsets: [10.0, 70.0]
+    durations: [25.0, 25.0]
+    amplitudes: 1.0
+
+  # Modulatory input: overlaps only with the 2nd driving block
+  u1:
+    type: boxcar
+    onsets: [75.0]
+    durations: [20.0]
+    amplitudes: 1.0
+
+neuronal:
+  # Baseline A: stable self-inhibition + weak feedforward 0->1
+  A:
+    - [-0.5,  0.0]
+    - [ 0.3, -0.5]
+
+  # B is (m,l,l) = (2,2,2)
+  # Let u1 (index 1) modulate connection 0->1 i.e. A[1,0]
+  # B[1][1][0] = 0.6
+  B:
+    # B for u0 (index 0): no modulation
+    - [[0.0, 0.0],
+       [0.0, 0.0]]
+
+    # B for u1 (index 1): increase coupling 0->1
+    - [[0.0, 0.0],
+       [0.6, 0.0]]
+
+  # Driving matrix C: drive region 0 with u0; do NOT drive region 1 directly
+  # Also do not drive anything with u1 (purely modulatory)
+  C:
+    - [1.0, 0.0]
+    - [0.0, 0.0]
+
+hemodynamic:
+  use_defaults: true

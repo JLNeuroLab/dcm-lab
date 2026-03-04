@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from dcm.simulate.design import make_time_grid, boxcar, stack_inputs, InputDesign
+from dcm.simulate.design import make_time_grid, boxcar, events, stack_inputs, InputDesign
 from dcm.models.neuronal_bilinear import BilinearParameters, BilinearNeuronalModel
 from dcm.models.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel
 from dcm.models.forward import ForwardModel, simulate_forward
@@ -25,17 +25,34 @@ def build_design(cfg: dict) -> InputDesign:
     for name in names:
         spec = cfg["inputs"][name]
         typ = spec["type"]
-        if typ != "boxcar":
-            raise NotImplementedError(f"Only 'boxcar' supported, got {typ}")
 
-        regs.append(
-            boxcar(
-                t,
-                onsets=spec["onsets"],
-                durations=spec["durations"],
-                amplitudes=spec.get("amplitudes", 1.0),
+        if typ == "boxcar":
+            regs.append(
+                boxcar(
+                    t,
+                    onsets=spec["onsets"],
+                    durations=spec["durations"],
+                    amplitudes=spec.get("amplitudes", 1.0),
+                )
             )
-        )
+        
+        elif typ == "events":
+            # Required: onsets
+            # Optional: amplitudes (scalar or list), mode ("nearest" or "floor")
+            if "durations" in spec:
+                raise ValueError(f"events input '{name}' should not define 'durations'")
+
+            regs.append(
+                events(
+                    t,
+                    onsets=spec["onsets"],
+                    amplitudes=spec.get("amplitudes", 1.0),
+                    mode=spec.get("mode", "nearest")
+                )
+            )
+        
+        else:
+            raise ValueError(f"Unknown input type '{typ}' for input '{name}'")
 
     U = stack_inputs(*regs)  # (T, m)
     return InputDesign(t=t, U=U, names=names)
@@ -224,13 +241,16 @@ def main(config_path: str):
         raise ValueError(f"Design m={design.m} != neuronal m={model.neuronal.params.m}")
 
     solver = cfg["simulation"]["solver"]
-    u = design.callable(kind="zoh")
+    dt = float(cfg["simulation"]["dt"])
+    max_step = solver.get("max_step", dt)   # default dt
+    u = design.callable(kind="linear")
 
     S, Y = simulate_forward(
         model=model,
         u=u,
         t_eval=design.t,
         method=solver.get("method", "RK45"),
+        max_step=max_step,
         rtol=float(solver.get("rtol", 1e-6)),
         atol=float(solver.get("atol", 1e-9)),
     )

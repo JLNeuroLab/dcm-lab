@@ -1,4 +1,4 @@
-name: forward_sanity
+name: forward_1r_2inputs_events
 
 simulation:
   T: 100.0
@@ -15,15 +15,15 @@ model:
 inputs:
   names: [u0, u1]
   u0:
-    type: boxcar
+    type: events
     onsets: [10.0]
-    durations: [20.0]
-    amplitudes: 1.0
+    amplitudes: 10.0
+    mode: nearest
   u1:
-    type: boxcar
-    onsets: [40.0]
-    durations: [30.0]
-    amplitudes: 1.0
+    type: events
+    onsets: [40.0, 42.0, 44.0, 46.0]
+    amplitudes: 10.0
+    mode: nearest
 
 neuronal:
   A: [[-0.5]]
