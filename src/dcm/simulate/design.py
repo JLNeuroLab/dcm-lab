@@ -111,6 +111,19 @@ def events(
 
     return u
 
+def event_pulses(
+    t: np.ndarray,
+    onsets,
+    duration: float,
+    amplitudes: float | np.ndarray = 1.0,
+) -> np.ndarray:
+    """
+    Represent events as short boxcar pulses of fixed duration.
+    """
+    onsets = np.asarray(onsets, dtype=float).ravel()
+    durations = np.full_like(onsets, float(duration))
+    return boxcar(t, onsets=onsets, durations=durations, amplitudes=amplitudes)
+
 
 # -----------------------------
 # 3) STACK INTO U(t) MATRIX
