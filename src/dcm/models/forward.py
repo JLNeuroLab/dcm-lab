@@ -152,6 +152,7 @@ def simulate_forward(
     method: str = "RK45",
     rtol: float = 1e-6,
     atol: float = 1e-9,
+    max_step: float | None = None,
 ) -> tuple[Array, Array]:
     """
     Integrate full DCM system.
@@ -182,6 +183,7 @@ def simulate_forward(
         method=method,
         rtol=rtol,
         atol=atol,
+        max_step=max_step,
         vectorized=False,
     )
 
