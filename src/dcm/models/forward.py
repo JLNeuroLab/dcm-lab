@@ -163,6 +163,9 @@ def simulate_forward(
     """
     from scipy.integrate import solve_ivp
 
+    if max_step is None:
+        max_step = (t_eval[-1] - t_eval[0]) / 100
+
     t_eval = np.asarray(t_eval, dtype=float)
     if t_eval.ndim != 1 or t_eval.size < 2:
         raise ValueError("t_eval must be 1D with at least 2 points")
