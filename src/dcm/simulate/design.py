@@ -210,6 +210,9 @@ class InputDesign:
     def m(self) -> int:
         return int(self.U.shape[1])
     
+    @property
+    def time(self) -> np.ndarray:
+        return self.t
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
