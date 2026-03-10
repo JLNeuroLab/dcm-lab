@@ -9,12 +9,14 @@ def adapter():
     return make_test_adapter()
 
 @pytest.fixture
-def synthetic_data(adapter):
-    """Return synthetic BOLD data matching adapter design."""
+def synthetic_data(adapter, theta_init):
+    return adapter(theta_init)
+
+@pytest.fixture
+def dummy_data(adapter):
     T = adapter.design.t.size
     l = adapter.forward_model.l
-    y_obs = np.zeros((T, l))  # simple zeros, easy to test
-    return y_obs
+    return np.zeros((T, l)) # simple zeros, easy to test
 
 @pytest.fixture
 def theta_init(adapter):
