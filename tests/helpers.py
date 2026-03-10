@@ -41,8 +41,8 @@ def make_test_adapter():
     t = make_time_grid(T=10, dt=0.05)
     u = boxcar(
         t=t,
-        onsets=10,
-        durations=20,
+        onsets=[10],
+        durations=[20],
     )
 
     design = InputDesign(t=t, U=u)
