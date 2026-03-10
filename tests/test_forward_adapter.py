@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from tests.helpers import make_test_adapter
+from .helpers import make_test_adapter
 from dcm.simulate.design import InputDesign
 
 def test_forward_adapter_output_shape():
