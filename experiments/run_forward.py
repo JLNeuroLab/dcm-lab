@@ -2,10 +2,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
-import numpy as np
-import matplotlib.pyplot as plt
 
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz, save_json
 from experiments.lib.utils import build_model, build_design

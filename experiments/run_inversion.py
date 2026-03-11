@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +8,6 @@ import matplotlib.pyplot as plt
 from dcm.models.forward import simulate_forward
 from dcm.models.parametrization import NeuronalParameterization, NeuronalTheta
 from dcm.inference.forward_adapter import ForwardAdapter
-from dcm.inference.objectives import gaussian_log_posterior
 from dcm.inference.optim import map_estimation
 
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz, save_json
