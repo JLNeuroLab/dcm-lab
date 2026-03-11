@@ -29,12 +29,17 @@ class ForwardAdapter:
         forward_model: ForwardModel,
         parametrization: NeuronalParameterization,
         design,
+        precomputed_u: Array,
+        t_eval: Array,
         z0: Array | None = None,
         x0: Array | None = None,
     ):
         self.forward_model = forward_model
         self.parametrization = parametrization
         self.design = design
+
+        self.u = precomputed_u          # precomputed inputs
+        self.t_eval = t_eval            # time points
 
         self.z0 = z0
         self.x0 = x0

@@ -59,10 +59,14 @@ def main(config_path: str):
         m=model_inference.neuronal.params.m
     )
 
+    # Precompute inputs once
+    u_precomp = design.callable(kind="zoh")
     adapter = ForwardAdapter(
         forward_model=model_inference,
         parametrization=parametrization,
         design=design,
+        precomputed_u=u_precomp,
+        t_eval=design.t
     )
     # --- Pack initial guess ---
     th0 = theta_from_config(cfg["initialization"])
@@ -85,10 +89,13 @@ def main(config_path: str):
         sigma=cfg["noise"]["std"],
         mu=mu_theta,
         sigma_prior=sigma_prior,
-        method=cfg["optimizer"]["method"]
+        method=cfg["optimizer"]["method"],
+        cache_eval=True,  # enable caching repeated evaluations
+        verbose=False
     )
 
     theta_est = result.x
+    Y_est = adapter(theta_est)
 
     # --- Save results ---
     save_npz(
@@ -110,6 +117,30 @@ def main(config_path: str):
 
     print("Inversion run saved to:", run_dir)
     print("Optimizer message:", result.message)
+
+    # --- Optional plots ---
+    plt.figure(figsize=(6,3))
+    plt.plot(trace, lw=2)
+    plt.xlabel("Iteration")
+    plt.ylabel("Negative log-posterior")
+    plt.title("Optimizer convergence")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(run_dir / "trace.png", dpi=200)
+    plt.close()
+
+    plt.figure(figsize=(10,3))
+    for r in range(Y_obs.shape[1]):
+        plt.plot(design.t, Y_obs[:, r], lw=2, label=f"Y_obs{r}")
+        plt.plot(design.t, Y_est[:, r], lw=2, ls="--", label=f"Y_est{r}")
+    plt.xlabel("time [s]")
+    plt.ylabel("BOLD")
+    plt.title("Observed vs Estimated BOLD")
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(run_dir / "bold_fit.png", dpi=200)
+    plt.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
