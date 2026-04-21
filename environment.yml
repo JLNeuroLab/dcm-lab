@@ -1,21 +1,23 @@
 name: dcm
 channels:
   - conda-forge
+
 dependencies:
-  - python=3.11
-  - numpy
-  - scipy
-  - torch
+  - python=3.10
+  - pip
+
+  - numpy=1.26
+  - scipy=1.11
   - pandas
   - matplotlib
-  - seaborn
   - tqdm
   - joblib
-  - pytest
+
   - black
   - ruff
-  - mypy
-  - pip
+  - pytest
+
   - pip:
-      - "jax[cpu]"
-      - numpyro
+      - torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+      - jax[cpu]==0.4.26
+      - numpyro==0.13.2
