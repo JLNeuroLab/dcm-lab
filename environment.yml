@@ -5,6 +5,7 @@ dependencies:
   - python=3.11
   - numpy
   - scipy
+  - torch
   - pandas
   - matplotlib
   - seaborn
