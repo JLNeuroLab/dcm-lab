@@ -32,3 +32,31 @@ def neuronal_rhs_factory_torch(model, input_fn: Callable):
         return model.dynamics(t, z, u_t)
 
     return f
+
+def hemodynamic_rhs_factory(model, neuronal_state_fn: Callable):
+    """
+    Wraps hemodynamic model into ODE form.
+
+    x_dot = g(x, z(t))
+    """
+
+    def f(t: float, x: np.ndarray) -> np.ndarray:
+        z_t = neuronal_state_fn(t)
+        return model.dynamics(t, x, z_t)
+
+    return f
+
+def hemodynamic_rhs_factory_torch(model, neuronal_state_fn: Callable):
+    """
+    Differentiable hemodynamic wrapper for MAP.
+    """
+
+    def f(t: float, x: torch.Tensor) -> torch.Tensor:
+        z_t = neuronal_state_fn(t)
+
+        if not torch.is_tensor(z_t):
+            z_t = torch.tensor(z_t, dtype=x.dtype, device=x.device)
+
+        return model.dynamics(t, x, z_t)
+
+    return f
