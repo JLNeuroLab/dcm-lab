@@ -53,6 +53,8 @@ def make_test_adapter():
         forward_model=model,
         parametrization=param,
         design=design,
+        precomputed_u=u,
+        t_eval=t
     )
 
     return adapter

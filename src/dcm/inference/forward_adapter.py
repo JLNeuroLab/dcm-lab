@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
 
-from dcm.models.forward import ForwardModel, simulate_forward
+from dcm.models.forward import ForwardModel
 from dcm.models.parametrization import NeuronalParameterization
 from dcm.models.neuronal_bilinear import BilinearParameters
 
@@ -85,8 +85,7 @@ class ForwardAdapter:
 
         u = self.design.callable()
 
-        S, Y = simulate_forward(
-            self.forward_model,
+        S, Y = self.forward_model.simulate(
             u=u,
             t_eval=self.design.t,
             z0=self.z0,

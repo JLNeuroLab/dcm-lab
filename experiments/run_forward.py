@@ -6,7 +6,6 @@ import argparse
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz, save_json
 from experiments.lib.utils import build_model, build_design
 from experiments.lib.plotting import plot_and_save_separate, plot_summary
-from dcm.models.forward import simulate_forward
 
 
 def main(config_path: str):
@@ -30,14 +29,9 @@ def main(config_path: str):
     max_step = solver.get("max_step", dt)   # default dt
     u = design.callable(kind="linear")
 
-    S, Y = simulate_forward(
-        model=model,
+    S, Y = model.simulate(
         u=u,
         t_eval=design.t,
-        method=solver.get("method", "RK45"),
-        max_step=max_step,
-        rtol=float(solver.get("rtol", 1e-6)),
-        atol=float(solver.get("atol", 1e-9)),
     )
 
     # Unpack using YOUR convention:
@@ -98,7 +92,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/forward_sanity.yaml",
+        default="experiments/configs/forward_1r_2inputs_events.yaml",
         help="Path to YAML config file",
     )
     args = parser.parse_args()

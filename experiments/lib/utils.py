@@ -3,7 +3,7 @@ import numpy as np
 from dcm.simulate.design import make_time_grid, boxcar, events, stack_inputs, InputDesign
 from dcm.models.neuronal_bilinear import BilinearParameters, BilinearNeuronalModel
 from dcm.models.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel
-from dcm.models.forward import ForwardModel, simulate_forward
+from dcm.models.forward import ForwardModel
 
 def build_design(cfg: dict) -> InputDesign:
     T = float(cfg["simulation"]["T"])

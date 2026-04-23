@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters, simulate_neuronal
-from dcm.models.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel, simulate_hemodynamic
-from dcm.models.forward import ForwardModel, simulate_forward
+from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
+from dcm.models.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel
+from dcm.models.forward import ForwardModel
 
 @pytest.fixture
 def dcm_model():
@@ -30,7 +30,7 @@ def test_zero_input_behaviour(dcm_model):
     def u_zero(t):
         return np.zeros(m, dtype=float)
     
-    S, Y = simulate_forward(model, u=u_zero, t_eval=t_eval)
+    S, Y = model.simulate(u=u_zero, t_eval=t_eval)
 
     # Neuronal state should remain near zero
     assert np.allclose(S[:, :l], 0.0, atol=1e-8), "neuronal states should be zero, got {}"
@@ -43,7 +43,7 @@ def test_step_input_behaviour_strict(dcm_model):
     def u_step(t):
         return np.array([1.0 if 10.0 <= t <= 20.0 else 0.0])
 
-    S, Y = simulate_forward(model, u=u_step, t_eval=t_eval)
+    S, Y = model.simulate(u=u_step, t_eval=t_eval)
 
     # Neuronal activity rises
     neuronal_max = np.max(S[:, :l])
@@ -68,7 +68,7 @@ def test_step_input_behaviour_relaxed(dcm_model):
     def u_step(t):
         return np.array([1.0 if 10.0 <= t <= 20.0 else 0.0])
 
-    S, Y = simulate_forward(model, u=u_step, t_eval=t_eval)
+    S, Y = model.simulate(u=u_step, t_eval=t_eval)
 
     # Calculate maximum neuronal activity over all time points
     neuronal_max = np.max(S[:, :l])
