@@ -4,9 +4,8 @@
 from __future__ import annotations # This help defining type hints without python evaluating immediately (e.g def f(self) -> B:)
 import torch
 from dataclasses import dataclass # Python decorator that automatically creates classes to store data 
-from typing import Callable, Optional, Protocol
-# Import neuronal parameters from the neuronal equation script
-from dcm.models.neuronal_bilinear import BilinearParameters
+from typing import Optional
+
 # Define parameters class for bilinear equation
 Tensor = torch.Tensor
 
