@@ -22,6 +22,11 @@ class BilinearParametersTorch:
     B: Tensor    # (m, l, l) effective connectivity, modulatory coupling per input
     C: Tensor    # (l, m) input driven connectivity 
 
+    def __post_init__(self):
+        object.__setattr__(self, "A", self.A.detach())
+        object.__setattr__(self, "B", self.B.detach())
+        object.__setattr__(self, "C", self.C.detach())
+
     def to(self, device: torch.device):
         """Move parameters to device (CPU/GPU)."""
         return BilinearParametersTorch(
@@ -67,7 +72,7 @@ class NeuronalBilinearTorch:
             dz = dz + u_t[j] * (B[j] @ z)
 
         # input driving term
-        dz = dz + C @ u
+        dz = dz + C @ u_t
 
         return dz
     
@@ -81,7 +86,8 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
     # Toy example: 3 regions, 2 inputs
     # ------------------------------------------------------------
-
+    from dcm.simulate.adapters import neuronal_rhs_factory_torch
+    from dcm.simulate.integrators import rk4_integrate_torch
     l, m = 3, 2
 
     A = torch.tensor([
@@ -109,8 +115,8 @@ if __name__ == "__main__":
     # Initial state
     # ------------------------------------------------------------
 
-    z = torch.zeros(l)
-
+    z0 = torch.zeros(l)
+    
     # ------------------------------------------------------------
     # Input function (same idea as NumPy version)
     # ------------------------------------------------------------
@@ -121,27 +127,15 @@ if __name__ == "__main__":
         return torch.tensor([u0, u1], dtype=torch.float32)
 
     # ------------------------------------------------------------
-    # Simple forward simulation (Euler integration)
+    # Simple forward simulation (RK4 integration)
     # ------------------------------------------------------------
-
     dt = 0.1
     T = 100.0
-    steps = int(T / dt)
+    t_eval = torch.arange(0.0, T, dt)
 
-    Z = []
 
-    for i in range(steps):
-
-        t = i * dt
-        u = u_t(t)
-
-        dz = model.dynamics(t, z, u)
-
-        z = z + dt * dz  # Euler step
-
-        Z.append(z.clone())
-
-    Z = torch.stack(Z)
+    f = neuronal_rhs_factory_torch(model, u_t)
+    Z = rk4_integrate_torch(f, t_eval, z0)
 
     # ------------------------------------------------------------
     # Sanity checks
