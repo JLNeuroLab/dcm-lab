@@ -24,6 +24,8 @@ from dcm.models.hemodynamic_balloon import (
     HemodynamicBalloonModel,
     HemodynamicParameters,
 )
+from dcm.simulate.integrators import rk4_integrate
+from dcm.simulate.adapters import neuronal_rhs_factory
 
 Array = np.ndarray
 InputFn = Callable[[float], np.ndarray]
@@ -139,64 +141,44 @@ class ForwardModel:
         return self.hemodynamic.bold(x)
 
 
-# -----------------------------------------------------------------------------
-# Simulation utility (temporary; move later to simulate/)
-# -----------------------------------------------------------------------------
+  # -------------------------------------------------------------------------
+    # NEW: simulation using shared integrators
+    # -------------------------------------------------------------------------
 
-def simulate_forward(
-    model: ForwardModel,
-    u: InputFn,
-    t_eval: Array,
-    z0: Optional[Array] = None,
-    x0: Optional[Array] = None,
-    method: str = "RK45",
-    rtol: float = 1e-6,
-    atol: float = 1e-9,
-    max_step: float | None = None,
-) -> tuple[Array, Array]:
-    """
-    Integrate full DCM system.
+    def simulate(
+        self,
+        u: InputFn,
+        t_eval: Array,
+        z0: Optional[Array] = None,
+        x0: Optional[Array] = None,
+    ) -> tuple[Array, Array]:
+        """
+        Simulate full DCM system using RK4 integrator.
 
-    Returns:
-        S: (T, 5l)
-        Y: (T, l)
-    """
-    from scipy.integrate import solve_ivp
+        Returns
+        -------
+        S : (T, 5l)
+        Y : (T, l)
+        """
 
-    if max_step is None:
-        max_step = (t_eval[-1] - t_eval[0]) / 100
+        s0 = self.initial_state(z0, x0)
 
-    t_eval = np.asarray(t_eval, dtype=float)
-    if t_eval.ndim != 1 or t_eval.size < 2:
-        raise ValueError("t_eval must be 1D with at least 2 points")
-    if not np.all(np.diff(t_eval) > 0):
-        raise ValueError("t_eval must be strictly increasing")
+        # Build neuronal RHS
+        z_rhs = neuronal_rhs_factory(self.neuronal, u)
 
-    s0 = model.initial_state(z0, x0)
+        # We define full RHS for joint system
+        def f(t: float, state: Array) -> Array:
+            z, x = self.unpack(state)
 
-    def rhs(t: float, state: Array) -> Array:
-        u_t = np.asarray(u(t), dtype=float)
-        return model.dynamics(t, state, u_t)
+            z_dot = z_rhs(t, z)
+            x_dot = self.hemodynamic.dynamics(t, x, z)
 
-    sol = solve_ivp(
-        fun=rhs,
-        t_span=(float(t_eval[0]), float(t_eval[-1])),
-        y0=s0,
-        t_eval=t_eval,
-        method=method,
-        rtol=rtol,
-        atol=atol,
-        max_step=max_step,
-        vectorized=False,
-    )
+            return self.pack(z_dot, x_dot)
 
-    if not sol.success:
-        raise RuntimeError(f"Integration failed: {sol.message}")
+        S = rk4_integrate(f, t_eval, s0)
+        Y = np.vstack([self.observe(s) for s in S])
 
-    S = sol.y.T  # (T, 5l)
-    Y = np.vstack([model.observe(s) for s in S])  # (T, l)
-
-    return S, Y
+        return S, Y
 
 
 # -----------------------------------------------------------------------------
@@ -225,7 +207,7 @@ if __name__ == "__main__":
 
     t = np.linspace(0.0, 60.0, 601)
 
-    S, Y = simulate_forward(model, u=u, t_eval=t)
+    S, Y = model.simulate(u=u, t_eval=t)
 
     print("State shape:", S.shape)  # (T, 5l)
     print("BOLD shape:", Y.shape)   # (T, l)

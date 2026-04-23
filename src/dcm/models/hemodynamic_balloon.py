@@ -185,58 +185,60 @@ class HemodynamicBalloonModel:
         y = p.V0 * (k1 * (1 - q) + k2 * (1 - q / v_safe) + k3 * (1 - v))
         return y
     
-def simulate_hemodynamic(
-    model: HemodynamicBalloonModel,
-    z: InputFn,            # neuronal drive function z(t) -> (l,)
-    t_eval: Array,
-    x0: Optional[Array] = None,
-    method: str = "RK45",
-    rtol: float = 1e-6,
-    atol: float = 1e-9,
-    return_bold: bool = True,
-) -> tuple[Array, Optional[Array]]:
-    """
-    Integrate hemodynamic states x(t) over t_eval.
+# def simulate_hemodynamic(
+#     model: HemodynamicBalloonModel,
+#     z: InputFn,            # neuronal drive function z(t) -> (l,)
+#     t_eval: Array,
+#     x0: Optional[Array] = None,
+#     method: str = "RK45",
+#     rtol: float = 1e-6,
+#     atol: float = 1e-9,
+#     return_bold: bool = True,
+# ) -> tuple[Array, Optional[Array]]:
+#     """
+#     Integrate hemodynamic states x(t) over t_eval.
 
-    Returns:
-      X: (T, 4l)
-      Y: (T, l) if return_bold else None
-    """
-    from scipy.integrate import solve_ivp
+#     Returns:
+#       X: (T, 4l)
+#       Y: (T, l) if return_bold else None
+#     """
+#     from scipy.integrate import solve_ivp
 
-    t_eval = np.asarray(t_eval, dtype=float)
-    if t_eval.ndim != 1 or t_eval.size < 2:
-        raise ValueError("t_eval must be a 1D array with at least 2 time points")
-    if not np.all(np.diff(t_eval) > 0):
-        raise ValueError("t_eval must be strictly increasing")
+#     t_eval = np.asarray(t_eval, dtype=float)
+#     if t_eval.ndim != 1 or t_eval.size < 2:
+#         raise ValueError("t_eval must be a 1D array with at least 2 time points")
+#     if not np.all(np.diff(t_eval) > 0):
+#         raise ValueError("t_eval must be strictly increasing")
 
-    x0_ = model.initial_state(x0)
+#     x0_ = model.initial_state(x0)
 
-    def rhs(t: float, x: Array) -> Array:
-        z_t = np.asarray(z(t), dtype=float)
-        return model.dynamics(t, x, z_t)
+#     def rhs(t: float, x: Array) -> Array:
+#         z_t = np.asarray(z(t), dtype=float)
+#         return model.dynamics(t, x, z_t)
 
-    sol = solve_ivp(
-        fun=rhs,
-        t_span=(float(t_eval[0]), float(t_eval[-1])),
-        t_eval=t_eval,
-        y0=x0_,
-        method=method,
-        rtol=rtol,
-        atol=atol,
-        vectorized=False,
-    )
-    if not sol.success:
-        raise RuntimeError(f"Integration failed: {sol.message}")
+#     sol = solve_ivp(
+#         fun=rhs,
+#         t_span=(float(t_eval[0]), float(t_eval[-1])),
+#         t_eval=t_eval,
+#         y0=x0_,
+#         method=method,
+#         rtol=rtol,
+#         atol=atol,
+#         vectorized=False,
+#     )
+#     if not sol.success:
+#         raise RuntimeError(f"Integration failed: {sol.message}")
 
-    X = sol.y.T  # (T, 4l)
-    if not return_bold:
-        return X, None
+#     X = sol.y.T  # (T, 4l)
+#     if not return_bold:
+#         return X, None
 
-    Y = np.vstack([model.bold(Xk) for Xk in X])  # (T, l)
-    return X, Y
+#     Y = np.vstack([model.bold(Xk) for Xk in X])  # (T, l)
+#     return X, Y
 
 if __name__ == "__main__":
+    from dcm.simulate.adapters import hemodynamic_rhs_factory
+    from dcm.simulate.integrators import euler_integrate
     # Demo: 3-region hemodynamics driven by a toy neuronal signal z(t)
     l = 3
     p = HemodynamicParameters.with_defaults(l)
@@ -249,8 +251,12 @@ if __name__ == "__main__":
         z3 = 0.8 if 20.0 <= t <= 35.0 else 0.0
         return np.array([z1, z2, z3], dtype=float)
 
+    f = hemodynamic_rhs_factory(model, z)
+    x0 = np.zeros(4 * model.params.l, dtype=float)
     t = np.linspace(0.0, 60.0, 601)
-    X, Y = simulate_hemodynamic(model, z=z, t_eval=t, return_bold=True)
+    X = euler_integrate(f, t, x0)
+    Y = np.stack([model.bold(x) for x in X], axis=0)
+
     print("X shape:", X.shape)  # (T, 4l)
     print("Y shape:", Y.shape)  # (T, l)
     print("Final BOLD:", Y[-1])

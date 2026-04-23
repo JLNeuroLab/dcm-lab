@@ -82,57 +82,59 @@ class BilinearNeuronalModel:
 # dcm/integrate/solver.py  (move this to its own file later)
 # -----------------------------------------------------------------------------
 
-InputFn = Callable[[float], np.ndarray]
+#InputFn = Callable[[float], np.ndarray]
 
-def simulate_neuronal(
-        model: BilinearNeuronalModel,
-        u: InputFn,
-        t_eval: Array,
-        z0: Optional[Array] = None,
-        method: str = "RK45",
-        rtol: float = 1e-6,
-        atol: float = 1e-9,
-) -> Array:
-    """
-    Integrate neuronal states z(t) over times t_eval using scipy.solve_ivp.
+# def simulate_neuronal(
+#         model: BilinearNeuronalModel,
+#         u: InputFn,
+#         t_eval: Array,
+#         z0: Optional[Array] = None,
+#         method: str = "RK45",
+#         rtol: float = 1e-6,
+#         atol: float = 1e-9,
+# ) -> Array:
+#     """
+#     Integrate neuronal states z(t) over times t_eval using scipy.solve_ivp.
 
-    Returns:
-        Z: (len(t_eval), l)
-    """
-    from scipy.integrate import solve_ivp
+#     Returns:
+#         Z: (len(t_eval), l)
+#     """
+#     from scipy.integrate import solve_ivp
 
-    t_eval = np.asarray(t_eval, dtype=float)
-    if t_eval.ndim != 1 or t_eval.size < 2:
-        raise ValueError("t_eval must be a 1D array with at least 2 time points")
-    if not np.all(np.diff(t_eval) > 0):
-        raise ValueError("t_eval must be strictly increasing")
+#     t_eval = np.asarray(t_eval, dtype=float)
+#     if t_eval.ndim != 1 or t_eval.size < 2:
+#         raise ValueError("t_eval must be a 1D array with at least 2 time points")
+#     if not np.all(np.diff(t_eval) > 0):
+#         raise ValueError("t_eval must be strictly increasing")
     
-    z0_ = model.initial_state(z0)
+#     z0_ = model.initial_state(z0)
 
-    def rhs(t: float, z: Array) -> Array:
+#     def rhs(t: float, z: Array) -> Array:
 
-        u_t = np.asarray(u(t), dtype=float)
-        dynamics = model.dynamics(t, z, u_t)
-        return dynamics
+#         u_t = np.asarray(u(t), dtype=float)
+#         dynamics = model.dynamics(t, z, u_t)
+#         return dynamics
     
-    sol = solve_ivp(
-        fun=rhs,
-        t_span=(float(t_eval[0]), float(t_eval[-1])),
-        t_eval=t_eval,
-        y0=z0_,
-        method=method,
-        rtol=rtol,
-        atol=atol,
-        vectorized=False
-    )
+#     sol = solve_ivp(
+#         fun=rhs,
+#         t_span=(float(t_eval[0]), float(t_eval[-1])),
+#         t_eval=t_eval,
+#         y0=z0_,
+#         method=method,
+#         rtol=rtol,
+#         atol=atol,
+#         vectorized=False
+#     )
 
-    if not sol.success:
-        raise RuntimeError(f"Integration failed: {sol.message}")
-    # sol.y is (l, T); return (T, l)
-    return sol.y.T
+#     if not sol.success:
+#         raise RuntimeError(f"Integration failed: {sol.message}")
+#     # sol.y is (l, T); return (T, l)
+#     return sol.y.T
 
 if __name__ == "__main__":
 
+    from dcm.simulate.integrators import euler_integrate
+    from dcm.simulate.adapters import neuronal_rhs_factory
     # Toy 3-region, 2-input example
     l, m = 3, 2
 
@@ -161,8 +163,11 @@ if __name__ == "__main__":
         u1 = 1.0 if 40.0 <= t <= 70.0 else 0.0
         return np.array([u0, u1], dtype=float)
 
+    f = neuronal_rhs_factory(model, input_fn=u)
     t = np.linspace(0.0, 100.0, 1001)
-    Z = simulate_neuronal(model, u=u, t_eval=t)
+    z0=np.zeros(model.params.l)
+
+    Z = euler_integrate(f, t, z0)
 
     # Minimal sanity print (plot in a notebook or separate script)
     print("Z shape:", Z.shape)      # (T, l)
