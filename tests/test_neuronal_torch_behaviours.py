@@ -2,9 +2,9 @@ import numpy as np
 import torch
 
 from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
-from dcm.models.torch.neuronal_torch import NeuronalBilinearTorch, BilinearParametersTorch
-from dcm.simulation.numpy import simulate_neuronal as sim_np
-from dcm.simulation.torch import simulate_neuronal as sim_torch
+from dcm.torch.neuronal_torch import NeuronalBilinearTorch, BilinearParametersTorch
+from dcm.simulate.adapters import neuronal_rhs_factory_torch, neuronal_rhs_factory
+from dcm.simulate.integrators import rk4_integrate_torch, rk4_integrate
 
 
 def test_numpy_torch_equivalence():
@@ -44,95 +44,89 @@ def test_numpy_torch_equivalence():
         def u_torch(t):
             return torch.tensor(u(t), dtype=torch.float32)
 
-        t = np.linspace(0, 20, 200)
+        t = torch.linspace(0, 20, 200, dtype=torch.float32)
+        z0 = torch.tensor([1.0, -1.0, 0.5], dtype=torch.float32)
 
-        z0 = np.array([1.0, -1.0, 0.5])
+        f_torch = neuronal_rhs_factory_torch(model=model_torch, input_fn=u_torch)
+        Z_torch = rk4_integrate_torch(f=f_torch, t_eval=t, z0=z0)
 
-        Z_np = sim_np(model_np, u, t, z0=z0)
-        Z_torch = sim_torch(model_torch, u_torch, t, z0=torch.tensor(z0)).detach().numpy()
-
+        f_np = neuronal_rhs_factory(model=model_np, input_fn=u)
+        Z_np = rk4_integrate(f=f_np, t_eval=t, z0=z0)
         assert np.allclose(Z_np, Z_torch, atol=1e-5)
 
-    def test_stability_decay_to_zero():
+def test_neuronal_torch_matches_numpy():
 
-        l, m = 3, 2
+    l, m = 3, 2
 
-        A = np.diag([-0.8, -0.6, -0.5])
-        B = np.zeros((m, l, l))
-        C = np.zeros((l, m))
+    A = np.random.randn(l, l) * 0.1
+    B = np.random.randn(m, l, l) * 0.1
+    C = np.random.randn(l, m) * 0.1
 
-        model = NeuronalBilinearTorch(
-            BilinearParametersTorch(
-                A=torch.tensor(A, dtype=torch.float32),
-                B=torch.tensor(B, dtype=torch.float32),
-                C=torch.tensor(C, dtype=torch.float32),
-            )
+    z = np.random.randn(l)
+    u = np.random.randn(m)
+
+    # NumPy
+    np_model = BilinearNeuronalModel(BilinearParameters(A, B, C))
+    dz_np = np_model.dynamics(0.0, z, u)
+
+    # Torch
+    torch_model = NeuronalBilinearTorch(
+        BilinearParametersTorch(
+            A=torch.tensor(A, dtype=torch.float32),
+            B=torch.tensor(B, dtype=torch.float32),
+            C=torch.tensor(C, dtype=torch.float32),
         )
+    )
 
-        def u(t):
-            return torch.zeros(m)
+    dz_torch = torch_model.dynamics(
+        0.0,
+        torch.tensor(z, dtype=torch.float32),
+        torch.tensor(u, dtype=torch.float32),
+    ).detach().numpy()
 
-        t = np.linspace(0, 10, 200)
+    assert np.allclose(dz_np, dz_torch, atol=1e-5)
 
-        z0 = torch.tensor([1.0, -2.0, 0.5])
+def test_neuronal_autograd():
 
-        Z = simulate_torch(model, u, t, z0=z0)
+    l, m = 3, 2
 
-        assert torch.norm(Z[-1]) < 0.1 * torch.norm(Z[0])
+    A = torch.randn(l, l)
+    B = torch.randn(m, l, l)
+    C = torch.randn(l, m)
+    model = NeuronalBilinearTorch(
+        BilinearParametersTorch(A=A, B=B, C=C)
+    )
 
-        def test_gradient_flow():
+    z = torch.randn(l, requires_grad=True)
+    u = torch.randn(m)
 
-        l, m = 3, 2
+    dz = model.dynamics(0.0, z, u)
+    loss = dz.sum()
+    loss.backward()
 
-        A = torch.randn(l, l, requires_grad=True)
-        B = torch.zeros(m, l, l, requires_grad=True)
-        C = torch.zeros(l, m, requires_grad=True)
+    assert z.grad is not None
+    assert A.requires_grad is False
+    assert B.requires_grad is False
+    assert C.requires_grad is False
 
-        model = NeuronalBilinearTorch(
-            BilinearParametersTorch(A=A, B=B, C=C)
-        )
+def test_neuronal_torch_finite():
+    import torch
+    import numpy as np
 
-        def u(t):
-            return torch.ones(m)
+    l, m = 3, 2
 
-        t = np.linspace(0, 5, 50)
+    A = torch.randn(l, l) * 0.1
+    B = torch.randn(m, l, l) * 0.1
+    C = torch.randn(l, m) * 0.1
 
-        z0 = torch.zeros(l, requires_grad=False)
+    model = NeuronalBilinearTorch(
+        BilinearParametersTorch(A=A, B=B, C=C)
+    )
 
-        Z = simulate_torch(model, u, t, z0=z0)
+    z = torch.randn(l)
+    u = torch.randn(m)
 
-        loss = Z.pow(2).mean()
+    dz = model.dynamics(0.0, z, u)
 
-        loss.backward()
-
-        assert A.grad is not None
-        assert not torch.isnan(A.grad).any()
-        assert torch.isfinite(A.grad).all()
-
-    def test_long_rollout_numerical_stability():
-
-        l, m = 3, 2
-
-        A = np.diag([-0.5, -0.6, -0.7])
-        B = np.zeros((m, l, l))
-        C = np.zeros((l, m))
-
-        model = NeuronalBilinearTorch(
-            BilinearParametersTorch(
-                A=torch.tensor(A, dtype=torch.float32),
-                B=torch.tensor(B, dtype=torch.float32),
-                C=torch.tensor(C, dtype=torch.float32),
-            )
-        )
-
-        def u(t):
-            return torch.sin(torch.tensor([t, t]))
-
-        t = np.linspace(0, 200, 5000)
-
-        z0 = torch.randn(l)
-
-        Z = simulate_torch(model, u, t, z0=z0)
-
-        assert torch.isfinite(Z).all()
-        assert not torch.isnan(Z).any()
+    assert torch.all(torch.isfinite(dz))
+    assert dz.shape == (l,)

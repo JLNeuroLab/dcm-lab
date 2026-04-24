@@ -72,8 +72,8 @@ def neuronal_rhs_factory_torch(model, input_fn: Callable[[float], Tensor]) -> Ca
             f(t, z) -> dz/dt (torch.Tensor)
     """
 
-    m = model.params.m
-    l = model.params.l
+    m = model.m
+    l = model.l
 
     def f(t: float, z: Tensor) -> Tensor:
         if z.shape != (l,):
@@ -159,7 +159,7 @@ def hemodynamic_rhs_factory_torch(
             f(t, x) -> dx/dt (torch.Tensor)
     """
 
-    l = model.params.l
+    l = model.l
     state_dim = 4 * l
 
     def f(t: float, x: Tensor) -> Tensor:

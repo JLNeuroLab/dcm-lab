@@ -1,84 +1,82 @@
 from __future__ import annotations
 
 import torch
+import torch.nn as nn
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Optional
 
 Tensor = torch.Tensor
-InputFn = Callable[[float], Tensor]
 
 
 # ---------------------------------------------------------------------
-# Parameters
+# Parameters container
 # ---------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class HemodynamicParametersTorch:
-    """
-    l = number of brain regions
-    All parameters are torch tensors of shape (l,)
-    """
-
     l: int
-    kappa: Tensor  # signal decay
-    gamma: Tensor  # flow-dependent elimination
-    tau: Tensor    # transit time
-    alpha: Tensor  # Grubb exponent
-    rho: Tensor    # resting oxygen extraction fraction
-
+    kappa: Tensor
+    gamma: Tensor
+    tau: Tensor
+    alpha: Tensor
+    rho: Tensor
     V0: float = 0.02
 
-    def to(self, device: torch.device):
-        return HemodynamicParametersTorch(
-            l=self.l,
-            kappa=self.kappa.to(device),
-            gamma=self.gamma.to(device),
-            tau=self.tau.to(device),
-            alpha=self.alpha.to(device),
-            rho=self.rho.to(device),
-            V0=self.V0,
-        )
-
 
 # ---------------------------------------------------------------------
-# Model
+# Hemodynamic model
 # ---------------------------------------------------------------------
 
-class HemodynamicBalloonTorch:
+class HemodynamicBalloonTorch(nn.Module):
     """
-    Balloon model fully compatible with PyTorch autograd.
+    Balloon model (ODE-based, differentiable, nn.Module-compatible)
     """
 
     def __init__(self, params: HemodynamicParametersTorch):
-        self.params = params
+        super().__init__()
 
-    # -----------------------------
+        # store constants
+        self.l = params.l
+        self.V0 = params.V0
+
+        # fixed biological parameters as buffers
+        self.register_buffer("kappa", params.kappa.clone().detach())
+        self.register_buffer("gamma", params.gamma.clone().detach())
+        self.register_buffer("tau", params.tau.clone().detach())
+        self.register_buffer("alpha", params.alpha.clone().detach())
+        self.register_buffer("rho", params.rho.clone().detach())
+
+    # -----------------------------------------------------------------
     # Oxygen extraction
-    # -----------------------------
+    # -----------------------------------------------------------------
+
     def _E(self, f: Tensor, rho: Tensor) -> Tensor:
         f = torch.clamp(f, 1e-6)
         return 1.0 - torch.pow(1.0 - rho, 1.0 / f)
 
-    # -----------------------------
-    # Initial state
-    # -----------------------------
+    # -----------------------------------------------------------------
+    # State init
+    # -----------------------------------------------------------------
+
     def initial_state(self, x0: Optional[Tensor] = None) -> Tensor:
-        l = self.params.l
+        l = self.l
 
         if x0 is None:
-            s0 = torch.zeros(l)
-            f0 = torch.ones(l)
-            v0 = torch.ones(l)
-            q0 = torch.ones(l)
-            return torch.cat([s0, f0, v0, q0], dim=0)
+            return torch.cat([
+                torch.zeros(l),  # s
+                torch.ones(l),   # f
+                torch.ones(l),   # v
+                torch.ones(l),   # q
+            ], dim=0)
 
         return x0
 
-    # -----------------------------
+    # -----------------------------------------------------------------
     # unpack / pack
-    # -----------------------------
+    # -----------------------------------------------------------------
+
     def unpack(self, x: Tensor):
-        l = self.params.l
+        l = self.l
         s = x[:l]
         f = x[l:2*l]
         v = x[2*l:3*l]
@@ -88,54 +86,46 @@ class HemodynamicBalloonTorch:
     def pack(self, s: Tensor, f: Tensor, v: Tensor, q: Tensor) -> Tensor:
         return torch.cat([s, f, v, q], dim=0)
 
-    # -----------------------------
-    # dynamics (DIFFERENTIABLE)
-    # -----------------------------
-    def dynamics(self, t: float, x: Tensor, z_t: Tensor) -> Tensor:
-        """
-        x: (4l,)
-        z_t: (l,)
-        """
+    # -----------------------------------------------------------------
+    # dynamics
+    # -----------------------------------------------------------------
 
-        p = self.params
-        l = p.l
+    def dynamics(self, t: float, x: Tensor, z_t: Tensor) -> Tensor:
+        l = self.l
 
         s, f, v, q = self.unpack(x)
 
         f_safe = torch.clamp(f, 1e-6)
         v_safe = torch.clamp(v, 1e-6)
 
-        f_out = torch.pow(v_safe, 1.0 / p.alpha)
-        E = self._E(f_safe, p.rho)
+        f_out = torch.pow(v_safe, 1.0 / self.alpha)
+        E = self._E(f_safe, self.rho)
 
-        s_dot = z_t - p.kappa * s - p.gamma * (f_safe - 1.0)
+        s_dot = z_t - self.kappa * s - self.gamma * (f_safe - 1.0)
         f_dot = s
-        v_dot = (f_safe - f_out) / p.tau
-        q_dot = (f_safe * E / p.rho - f_out * q / v_safe) / p.tau
+        v_dot = (f_safe - f_out) / self.tau
+        q_dot = (f_safe * E / self.rho - f_out * q / v_safe) / self.tau
 
         return self.pack(s_dot, f_dot, v_dot, q_dot)
 
-    # -----------------------------
+    # -----------------------------------------------------------------
     # BOLD observation
-    # -----------------------------
+    # -----------------------------------------------------------------
+
     def bold(self, x: Tensor) -> Tensor:
-        p = self.params
         s, f, v, q = self.unpack(x)
 
         v_safe = torch.clamp(v, 1e-6)
 
-        k1 = 7 * p.rho
-        k2 = torch.full_like(k1, 2.0)
-        k3 = 2 * p.rho + 0.2
+        k1 = 7 * self.rho
+        k2 = 2.0 * torch.ones_like(q)
+        k3 = 2 * self.rho + 0.2
 
-        y = p.V0 * (
+        return self.V0 * (
             k1 * (1 - q)
             + k2 * (1 - q / v_safe)
             + k3 * (1 - v)
         )
-
-        return y
-
 
 if __name__ == "__main__":
 

@@ -3,6 +3,7 @@
 #   z_dot = (A + sum_j u_j(t) * B[j]) z + C u(t)
 from __future__ import annotations # This help defining type hints without python evaluating immediately (e.g def f(self) -> B:)
 import torch
+import torch.nn as nn
 from dataclasses import dataclass # Python decorator that automatically creates classes to store data 
 from typing import Optional
 
@@ -21,19 +22,6 @@ class BilinearParametersTorch:
     B: Tensor    # (m, l, l) effective connectivity, modulatory coupling per input
     C: Tensor    # (l, m) input driven connectivity 
 
-    def __post_init__(self):
-        object.__setattr__(self, "A", self.A.detach())
-        object.__setattr__(self, "B", self.B.detach())
-        object.__setattr__(self, "C", self.C.detach())
-
-    def to(self, device: torch.device):
-        """Move parameters to device (CPU/GPU)."""
-        return BilinearParametersTorch(
-            A=self.A.to(device),
-            B=self.B.to(device),
-            C=self.C.to(device),
-        )
-
     @property
     def l(self) -> int:
         return self.A.shape[0]
@@ -41,7 +29,7 @@ class BilinearParametersTorch:
     def m(self) -> int:
         return self.B.shape[0]
 
-class NeuronalBilinearTorch:
+class NeuronalBilinearTorch(nn.Module):
     """
     Torch implementation of bilinear neuronal DCM dynamics.
 
@@ -52,7 +40,16 @@ class NeuronalBilinearTorch:
     """
 
     def __init__(self, params: BilinearParametersTorch):
-        self.params = params
+        super().__init__()
+
+        # frozen physics
+        self.register_buffer("A", params.A.clone().detach())
+        self.register_buffer("B", params.B.clone().detach())
+        self.register_buffer("C", params.C.clone().detach())
+        
+        self.l = params.l
+        self.m = params.m
+
 
     def dynamics(self, t: float, z: Tensor, u_t: Tensor) -> Tensor:
         """
@@ -60,9 +57,16 @@ class NeuronalBilinearTorch:
         u: (m,)
         """
 
-        A = self.params.A          # (l, l)
-        B = self.params.B          # (m, l, l)
-        C = self.params.C          # (l, m)
+        A = self.A          # (l, l)
+        B = self.B          # (m, l, l)
+        C = self.C          # (l, m)
+
+        # sanity checks
+        if z.shape != (self.l,):
+            raise ValueError(f"z must be ({self.l},), got {z.shape}")
+        if u_t.shape != (self.m,):
+            raise ValueError(f"u_t must be ({self.m},), got {u_t.shape}")
+
         # Effective connectivity: A_eff(t) = A + Σ_j u_j(t) B_j
         # u_t: (m,), B: (m,l,l) -> (l,l)
         dz = A @ z
@@ -75,6 +79,9 @@ class NeuronalBilinearTorch:
 
         return dz
     
+    def forward(self, z: Tensor, u: Tensor) -> Tensor:
+        return self.dynamics(0.0, z, u)
+
     def initial_state(self, z0: Optional[Tensor] = None) -> Tensor:
         if z0 is None:
             return torch.zeros(self.params.l)
