@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 
 from experiments.lib.io import (
@@ -15,11 +14,22 @@ from experiments.lib.io import (
 )
 
 from experiments.lib.utils import build_design_torch, build_model_torch
+from experiments.lib.diagnostics import save_dcm_diagnostics
 
 from dcm.inference.objectives import DCMInferenceModel
 from dcm.inference.optim import map_estimation_torch
 from dcm.inference.likelihoods import gaussian_log_likelihood_torch
 from dcm.inference.priors import gaussian_log_prior_torch
+
+
+# ============================================================
+# UTILS SAFE CONVERSION
+# ============================================================
+
+def to_numpy(x):
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.array(x)
 
 
 # ============================================================
@@ -68,6 +78,10 @@ def main(config_path: str):
             t_eval=design.t,
         )
 
+        A_true = model_true.neuronal.A
+        B_true = model_true.neuronal.B
+        C_true = model_true.neuronal.C
+
     noise_std = torch.tensor(cfg["noise"]["std"], device=device)
     Y_obs = Y_true + noise_std * torch.randn_like(Y_true)
 
@@ -85,12 +99,12 @@ def main(config_path: str):
     C0 = torch.tensor(cfg["init_model"]["neuronal"]["C"], device=device)
 
     theta0 = torch.cat([A0.flatten(), B0.flatten(), C0.flatten()])
-
     mu_theta = theta0.clone()
 
-    sigma_cfg = cfg["priors"]["sigma"]
     l = model_inf.l
     m = model_inf.neuronal.m
+
+    sigma_cfg = cfg["priors"]["sigma"]
 
     sigma_prior = torch.cat([
         torch.full((l * l,), sigma_cfg["A"], device=device),
@@ -127,20 +141,19 @@ def main(config_path: str):
         theta=theta,
         n_steps=cfg["optimizer"]["max_iter"],
         lr=float(cfg["optimizer"].get("lr", 1e-2)),
-        method=cfg["optimizer"]["method"].lower(),  # FIX: case-safe
+        method=cfg["optimizer"]["method"].lower(),
         verbose=True,
     )
 
+    theta_est_np = to_numpy(theta_est)
+
     # ============================================================
-    # POSTERIOR SIMULATION (FIX CRUCIAL)
+    # INJECT ESTIMATED PARAMETERS
     # ============================================================
 
-    # IMPORTANT: inject estimated parameters BEFORE simulating
     with torch.no_grad():
 
-        # overwrite model parameters (simple safe approach)
         offset = 0
-
         l2 = l * l
         lm = l * m
 
@@ -162,17 +175,17 @@ def main(config_path: str):
         )
 
     # ============================================================
-    # SAVE
+    # SAVE RESULTS
     # ============================================================
 
     save_npz(
         run_dir / "results.npz",
         t=design.t.cpu().numpy(),
         U=design.U.cpu().numpy(),
-        Y_true=Y_true.cpu().numpy(),
-        Y_obs=Y_obs.cpu().numpy(),
-        Y_est=Y_est.cpu().numpy(),
-        theta_est=theta_est.detach().cpu().numpy(),
+        Y_true=to_numpy(Y_true),
+        Y_obs=to_numpy(Y_obs),
+        Y_est=to_numpy(Y_est),
+        theta_est=theta_est_np,
         trace=np.array(trace),
     )
 
@@ -185,50 +198,32 @@ def main(config_path: str):
     )
 
     # ============================================================
-    # PLOT (FIXED + MEANINGFUL)
+    # DIAGNOSTICS
     # ============================================================
 
-    fig_dir = Path(run_dir) / "figures"
-    fig_dir.mkdir(parents=True, exist_ok=True)
+    save_dcm_diagnostics(
+        run_dir=run_dir,
+        t=to_numpy(design.t),
+        U=to_numpy(design.U),
+        Y_true=to_numpy(Y_true),
+        Y_obs=to_numpy(Y_obs),
+        Y_est=to_numpy(Y_est),
+        trace=np.array(trace),
 
-    t = design.t.cpu().numpy()
+        theta_true=np.concatenate([
+            to_numpy(A_true).flatten(),
+            to_numpy(B_true).flatten(),
+            to_numpy(C_true).flatten()
+        ]),
+        theta_est=theta_est_np,
 
-    Y_true_np = Y_true.detach().cpu().numpy()
-    Y_obs_np = Y_obs.detach().cpu().numpy()
-    Y_est_np = Y_est.detach().cpu().numpy()
-
-    # ---------------- INPUTS ----------------
-    plt.figure(figsize=(10, 3))
-    for i in range(design.U.shape[1]):
-        plt.plot(t, design.U[:, i].cpu().numpy())
-    plt.title("Inputs")
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig(fig_dir / "inputs.png", dpi=200)
-    plt.close()
-
-    # ---------------- BOLD ----------------
-    plt.figure(figsize=(10, 4))
-    for r in range(Y_true_np.shape[1]):
-        plt.plot(t, Y_true_np[:, r], label=f"true {r}")
-        plt.plot(t, Y_obs_np[:, r], "--", label=f"obs {r}")
-        plt.plot(t, Y_est_np[:, r], ":", label=f"est {r}")
-
-    plt.title("BOLD: true vs obs vs MAP estimate")
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig(fig_dir / "bold.png", dpi=200)
-    plt.close()
-
-    # ---------------- TRACE ----------------
-    plt.figure(figsize=(8, 3))
-    plt.plot(trace)
-    plt.title("MAP optimization trace (loss)")
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig(fig_dir / "trace.png", dpi=200)
-    plt.close()
+        A_true=to_numpy(A_true),
+        A_est=to_numpy(A_est),
+        B_true=to_numpy(B_true),
+        B_est=to_numpy(B_est),
+        C_true=to_numpy(C_true),
+        C_est=to_numpy(C_est),
+    )
 
     print("✔ Inversion finished:", run_dir)
 
