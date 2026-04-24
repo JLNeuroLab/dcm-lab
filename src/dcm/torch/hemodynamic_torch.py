@@ -135,3 +135,85 @@ class HemodynamicBalloonTorch:
         )
 
         return y
+
+
+if __name__ == "__main__":
+
+    import torch
+
+    from dcm.simulate.adapters import hemodynamic_rhs_factory_torch
+    from dcm.simulate.integrators import rk4_integrate_torch
+
+    # ------------------------------------------------------------
+    # Setup
+    # ------------------------------------------------------------
+
+    l = 3
+
+    kappa = torch.full((l,), 0.65)
+    gamma = torch.full((l,), 0.41)
+    tau   = torch.full((l,), 0.98)
+    alpha = torch.full((l,), 0.32)
+    rho   = torch.full((l,), 0.34)
+
+    params = HemodynamicParametersTorch(
+        l=l,
+        kappa=kappa,
+        gamma=gamma,
+        tau=tau,
+        alpha=alpha,
+        rho=rho,
+        V0=0.02,
+    )
+
+    model = HemodynamicBalloonTorch(params)
+
+    # ------------------------------------------------------------
+    # Neuronal drive z(t)
+    # ------------------------------------------------------------
+
+    def z_t(t: float) -> torch.Tensor:
+        z1 = 1.0 if 5.0 <= t <= 15.0 else 0.0
+        z2 = 0.6 if 10.0 <= t <= 25.0 else 0.0
+        z3 = 0.8 if 20.0 <= t <= 35.0 else 0.0
+        return torch.tensor([z1, z2, z3], dtype=torch.float32)
+
+    # ------------------------------------------------------------
+    # Time grid
+    # ------------------------------------------------------------
+
+    dt = 0.1
+    T = 60.0
+    t_eval = torch.arange(0.0, T, dt)
+
+    # ------------------------------------------------------------
+    # Initial state
+    # ------------------------------------------------------------
+
+    x0 = model.initial_state()
+
+    # ------------------------------------------------------------
+    # Integrate
+    # ------------------------------------------------------------
+
+    f = hemodynamic_rhs_factory_torch(model, z_t)
+
+    X = rk4_integrate_torch(f, t_eval, x0)
+
+    # ------------------------------------------------------------
+    # BOLD
+    # ------------------------------------------------------------
+
+    Y = torch.stack([model.bold(x) for x in X])
+
+    # ------------------------------------------------------------
+    # Sanity checks
+    # ------------------------------------------------------------
+
+    print("X shape:", X.shape)   # (T, 4l)
+    print("Y shape:", Y.shape)   # (T, l)
+
+    print("Final state:", X[-1])
+    print("Final BOLD:", Y[-1])
+
+    print("Mean BOLD:", Y.mean(dim=0))
