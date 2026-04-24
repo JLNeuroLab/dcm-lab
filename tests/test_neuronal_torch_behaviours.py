@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
-from dcm.torch.neuronal_torch import NeuronalBilinearTorch, BilinearParametersTorch
+from dcm.torch.neuronal_torch import BilinearNeuronalTorch, BilinearParametersTorch
 from dcm.simulate.adapters import neuronal_rhs_factory_torch, neuronal_rhs_factory
 from dcm.simulate.integrators import rk4_integrate_torch, rk4_integrate
 
@@ -29,7 +29,7 @@ def test_numpy_torch_equivalence():
         model_np = BilinearNeuronalModel(BilinearParameters(A, B, C))
 
         # torch model
-        model_torch = NeuronalBilinearTorch(
+        model_torch = BilinearNeuronalTorch(
             BilinearParametersTorch(
                 A=torch.tensor(A, dtype=torch.float32),
                 B=torch.tensor(B, dtype=torch.float32),
@@ -70,7 +70,7 @@ def test_neuronal_torch_matches_numpy():
     dz_np = np_model.dynamics(0.0, z, u)
 
     # Torch
-    torch_model = NeuronalBilinearTorch(
+    torch_model = BilinearNeuronalTorch(
         BilinearParametersTorch(
             A=torch.tensor(A, dtype=torch.float32),
             B=torch.tensor(B, dtype=torch.float32),
@@ -93,7 +93,7 @@ def test_neuronal_autograd():
     A = torch.randn(l, l)
     B = torch.randn(m, l, l)
     C = torch.randn(l, m)
-    model = NeuronalBilinearTorch(
+    model = BilinearNeuronalTorch(
         BilinearParametersTorch(A=A, B=B, C=C)
     )
 
@@ -119,7 +119,7 @@ def test_neuronal_torch_finite():
     B = torch.randn(m, l, l) * 0.1
     C = torch.randn(l, m) * 0.1
 
-    model = NeuronalBilinearTorch(
+    model = BilinearNeuronalTorch(
         BilinearParametersTorch(A=A, B=B, C=C)
     )
 

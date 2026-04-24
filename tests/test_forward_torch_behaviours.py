@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from dcm.torch.neuronal_torch import (
-    NeuronalBilinearTorch,
+    BilinearNeuronalTorch,
     BilinearParametersTorch,
 )
 
@@ -30,7 +30,7 @@ def build_model():
     B = torch.zeros((m, l, l), dtype=torch.float32)
     C = torch.tensor([[1.0]], dtype=torch.float32)
 
-    neuronal = NeuronalBilinearTorch(
+    neuronal = BilinearNeuronalTorch(
         BilinearParametersTorch(A=A, B=B, C=C)
     )
 

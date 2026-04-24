@@ -2,7 +2,7 @@ from __future__ import annotations
 import torch
 from typing import Callable, Optional
 
-from dcm.torch.neuronal_torch import NeuronalBilinearTorch
+from dcm.torch.neuronal_torch import BilinearNeuronalTorch
 from dcm.torch.hemodynamic_torch import HemodynamicBalloonTorch
 from dcm.simulate.integrators import rk4_integrate_torch
 
@@ -22,7 +22,7 @@ class ForwardModelTorch:
 
     def __init__(
         self,
-        neuronal_model: NeuronalBilinearTorch,
+        neuronal_model: BilinearNeuronalTorch,
         hemodynamic_model: HemodynamicBalloonTorch,
     ):
         if neuronal_model.l != hemodynamic_model.l:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     import torch
 
     from dcm.torch.neuronal_torch import (
-        NeuronalBilinearTorch,
+        BilinearNeuronalTorch,
         BilinearParametersTorch,
     )
     from dcm.torch.hemodynamic_torch import (
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     C = torch.tensor([[1.0]], dtype=torch.float32, device=device)
 
     neuronal_params = BilinearParametersTorch(A=A, B=B, C=C)
-    neuronal_model = NeuronalBilinearTorch(neuronal_params)
+    neuronal_model = BilinearNeuronalTorch(neuronal_params)
 
     # ---------------- Hemodynamic ----------------
     kappa = torch.full((l,), 0.65, device=device)

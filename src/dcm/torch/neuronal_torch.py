@@ -29,7 +29,7 @@ class BilinearParametersTorch:
     def m(self) -> int:
         return self.B.shape[0]
 
-class NeuronalBilinearTorch(nn.Module):
+class BilinearNeuronalTorch(nn.Module):
     """
     Torch implementation of bilinear neuronal DCM dynamics.
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
 
     params = BilinearParametersTorch(A=A, B=B, C=C)
-    model = NeuronalBilinearTorch(params)
+    model = BilinearNeuronalTorch(params)
 
     # ------------------------------------------------------------
     # Initial state
