@@ -31,7 +31,6 @@ class ForwardModelTorch:
         self.neuronal = neuronal_model
         self.hemodynamic = hemodynamic_model
         self.l = neuronal_model.l
-
     # ------------------------------------------------------------------
     # State helpers
     # ------------------------------------------------------------------

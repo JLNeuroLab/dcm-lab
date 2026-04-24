@@ -1,133 +1,195 @@
 import numpy as np
 import torch
 
-from dcm.simulate.design import make_time_grid, boxcar, events, stack_inputs, InputDesign
-# --------------------------------------
-#    Imports for numpy models
-# ---------------------------------------
-from dcm.models.neuronal_bilinear import (
-    BilinearParameters, 
-    BilinearNeuronalModel
+# ============================================================
+# IMPORT DESIGN
+# ============================================================
+
+from dcm.simulate.design import (
+    make_time_grid as make_time_grid_np,
+    boxcar as boxcar_np,
+    events as events_np,
+    stack_inputs as stack_np,
+    InputDesign as InputDesign,
 )
+
+from dcm.simulate.design_torch import (
+    make_time_grid as make_time_grid_torch,
+    boxcar as boxcar_torch,
+    events as events_torch,
+    stack_inputs as stack_torch,
+    InputDesignTorch,
+)
+
+# ============================================================
+# MODELS (NUMPY)
+# ============================================================
+
+from dcm.models.neuronal_bilinear import (
+    BilinearParameters,
+    BilinearNeuronalModel,
+)
+
 from dcm.models.hemodynamic_balloon import (
     HemodynamicParameters,
-    HemodynamicBalloonModel
+    HemodynamicBalloonModel,
 )
+
 from dcm.models.forward import ForwardModel
-# --------------------------------------
-#    Imports for torch models
-# --------------------------------------
+
+
+# ============================================================
+# MODELS (TORCH)
+# ============================================================
+
 from dcm.torch.neuronal_torch import (
     BilinearNeuronalTorch,
-    BilinearParametersTorch
+    BilinearParametersTorch,
 )
-from dcm.torch.hemodynamic_torch import(
+
+from dcm.torch.hemodynamic_torch import (
     HemodynamicBalloonTorch,
-    HemodynamicParametersTorch
+    HemodynamicParametersTorch,
 )
+
 from dcm.torch.forward_torch import ForwardModelTorch
 
-def build_design(cfg: dict) -> InputDesign:
+
+# ============================================================
+# DESIGN BUILDERS
+# ============================================================
+
+def build_design_numpy(cfg: dict):
     T = float(cfg["simulation"]["T"])
     dt = float(cfg["simulation"]["dt"])
-    t = make_time_grid(T=T, dt=dt)
+
+    t = make_time_grid_np(T, dt)
 
     names = cfg["inputs"]["names"]
     regs = []
+
     for name in names:
         spec = cfg["inputs"][name]
         typ = spec["type"]
 
         if typ == "boxcar":
             regs.append(
-                boxcar(
+                boxcar_np(
                     t,
-                    onsets=spec["onsets"],
-                    durations=spec["durations"],
-                    amplitudes=spec.get("amplitudes", 1.0),
+                    spec["onsets"],
+                    spec["durations"],
+                    spec.get("amplitudes", 1.0),
                 )
             )
-        
+
         elif typ == "events":
-            # Required: onsets
-            # Optional: amplitudes (scalar or list), mode ("nearest" or "floor")
-            if "durations" in spec:
-                raise ValueError(f"events input '{name}' should not define 'durations'")
-
             regs.append(
-                events(
+                events_np(
                     t,
-                    onsets=spec["onsets"],
-                    amplitudes=spec.get("amplitudes", 1.0),
-                    mode=spec.get("mode", "nearest")
+                    spec["onsets"],
+                    spec.get("amplitudes", 1.0),
+                    spec.get("mode", "nearest"),
                 )
             )
-        
-        else:
-            raise ValueError(f"Unknown input type '{typ}' for input '{name}'")
 
-    U = stack_inputs(*regs)  # (T, m)
+        else:
+            raise ValueError(f"Unknown input type: {typ}")
+
+    U = stack_np(*regs)
     return InputDesign(t=t, U=U, names=names)
 
 
-def build_model(cfg: dict,
-                param_key: str = "neuronal",
-                backend: str = "numpy",
-                device: torch.device | None = None
-                ):
-    
+def build_design_torch(cfg: dict, device=None):
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    if backend not in ("numpy", "torch"):
-        raise ValueError(f"Unknown backend: {backend}")
-    
+
+    T = float(cfg["simulation"]["T"])
+    dt = float(cfg["simulation"]["dt"])
+
+    t = make_time_grid_torch(T, dt, device=device)
+
+    names = cfg["inputs"]["names"]
+    regs = []
+
+    for name in names:
+        spec = cfg["inputs"][name]
+        typ = spec["type"]
+
+        if typ == "boxcar":
+            regs.append(
+                boxcar_torch(
+                    t,
+                    spec["onsets"],
+                    spec["durations"],
+                    spec.get("amplitudes", 1.0),
+                    device=device,
+                )
+            )
+
+        elif typ == "events":
+            regs.append(
+                events_torch(
+                    t,
+                    spec["onsets"],
+                    spec.get("amplitudes", 1.0),
+                    spec.get("mode", "nearest"),
+                    device=device,
+                )
+            )
+
+        else:
+            raise ValueError(f"Unknown input type: {typ}")
+
+    U = stack_torch(*regs, device=device)
+    return InputDesignTorch(t=t, U=U, names=names)
+
+
+# ============================================================
+# MODEL BUILDERS
+# ============================================================
+
+def build_model_numpy(cfg: dict, param_key="neuronal"):
     l = int(cfg["model"]["l"])
     m = int(cfg["model"]["m"])
 
-    if backend == "numpy":
-        # Use the provided key to read parameters
-        A = np.asarray(cfg[param_key]["A"], dtype=float)
-        B = np.asarray(cfg[param_key]["B"], dtype=float)
-        C = np.asarray(cfg[param_key]["C"], dtype=float)
+    A = np.asarray(cfg[param_key]["A"], dtype=float)
+    B = np.asarray(cfg[param_key]["B"], dtype=float)
+    C = np.asarray(cfg[param_key]["C"], dtype=float)
 
-        neuronal_params = BilinearParameters(A=A, B=B, C=C)
-        if neuronal_params.l != l or neuronal_params.m != m:
-            raise ValueError(
-                f"Config model(l={l},m={m}) != neuronal params "
-                f"(l={neuronal_params.l},m={neuronal_params.m})"
-            )
-        neuronal_model = BilinearNeuronalModel(neuronal_params)
+    params = BilinearParameters(A=A, B=B, C=C)
 
-        if cfg["hemodynamic"].get("use_defaults", True):
-            hemo_params = HemodynamicParameters.with_defaults(l)
-        else:
-            raise NotImplementedError("Explicit hemodynamic params from YAML not implemented yet")
+    if params.l != l or params.m != m:
+        raise ValueError("Model dimension mismatch")
 
-        hemo_model = HemodynamicBalloonModel(hemo_params)
+    neuronal = BilinearNeuronalModel(params)
 
-        return ForwardModel(neuronal_model, hemo_model)
-    
-    if backend == "torch":
-       # Use the provided key to read parameters
-        A = torch.tensor(cfg[param_key]["A"], dtype=torch.float32, device=device)
-        B = torch.tensor(cfg[param_key]["B"], dtype=torch.float32, device=device)
-        C = torch.tensor(cfg[param_key]["C"], dtype=torch.float32, device=device)
+    hemo = HemodynamicBalloonModel(
+        HemodynamicParameters.with_defaults(l)
+    )
 
-        neuronal_params = BilinearParametersTorch(A=A, B=B, C=C)
-        if neuronal_params.l != l or neuronal_params.m != m:
-            raise ValueError(
-                f"Config model(l={l},m={m}) != neuronal params "
-                f"(l={neuronal_params.l},m={neuronal_params.m})"
-            )
-        # neuronal model 
-        neuronal_torch = BilinearNeuronalTorch(neuronal_params)
+    return ForwardModel(neuronal, hemo)
 
-        if cfg["hemodynamic"].get("use_defaults", True):
-            hemo_params = HemodynamicParametersTorch.with_defaults(l, device=device)
-        else:
-            raise NotImplementedError("Explicit hemodynamic params from YAML not implemented yet")
-        # hemodynamic model
-        hemo_torch = HemodynamicBalloonTorch(hemo_params)
 
-        return ForwardModelTorch(neuronal_torch, hemo_torch)
+def build_model_torch(cfg: dict, param_key="neuronal", device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    l = int(cfg["model"]["l"])
+    m = int(cfg["model"]["m"])
+
+    A = torch.tensor(cfg[param_key]["A"], dtype=torch.float32, device=device)
+    B = torch.tensor(cfg[param_key]["B"], dtype=torch.float32, device=device)
+    C = torch.tensor(cfg[param_key]["C"], dtype=torch.float32, device=device)
+
+    params = BilinearParametersTorch(A=A, B=B, C=C)
+
+    if params.l != l or params.m != m:
+        raise ValueError("Model dimension mismatch")
+
+    neuronal = BilinearNeuronalTorch(params)
+
+    hemo = HemodynamicBalloonTorch(
+        HemodynamicParametersTorch.with_defaults(l, device=device)
+    )
+
+    return ForwardModelTorch(neuronal, hemo)

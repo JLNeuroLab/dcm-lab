@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz, save_json
-from experiments.lib.utils import build_model, build_design
+from experiments.lib.utils import build_model_numpy, build_design_numpy
 from experiments.lib.plotting import plot_and_save_separate, plot_summary
 
 
@@ -17,8 +17,8 @@ def main(config_path: str):
     # Save config copy for reproducibility (what produced this run)
     save_yaml(cfg, run_dir / "config.yaml")
 
-    design = build_design(cfg)
-    model = build_model(cfg)
+    design = build_design_numpy(cfg)
+    model = build_model_numpy(cfg)
 
     # ensure design matches neuronal model m
     if design.m != model.neuronal.params.m:

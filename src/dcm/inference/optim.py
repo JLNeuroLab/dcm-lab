@@ -91,6 +91,8 @@ def map_estimation_torch(
             line_search_fn="strong_wolfe"
         )
 
+        counter = {"i": 0}
+
         def closure():
             optimizer.zero_grad()
 
@@ -100,8 +102,11 @@ def map_estimation_torch(
 
             trace.append(loss.item())
 
-            if verbose:
-                print(f"[LBFGS] loss: {loss.item():.6f}")
+            counter["i"] += 1 
+            
+            if verbose and counter["i"] % 5 == 0:
+                grad_norm = theta.grad.norm().item() if theta.grad is not None else 0.0
+                print(f"[LBFGS {counter['i']}] loss={loss.item():.6f} | grad_norm={grad_norm:.6f}")
 
             return loss
 
@@ -128,8 +133,10 @@ def map_estimation_torch(
 
             trace.append(loss.item())
 
-            if verbose:
-                print(f"[ADAM] step {i} loss: {loss.item():.6f}")
+            if verbose and i % 10 == 0:
+                grad_norm = theta.grad.norm().item() if theta.grad is not None else 0.0
+                print(f"[ADAM {i}] loss={loss.item():.6f} | grad_norm={grad_norm:.6f}")
+
 
         return theta, torch.tensor(trace)
 

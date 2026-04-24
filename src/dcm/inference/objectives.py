@@ -76,31 +76,45 @@ class DCMInferenceModel(nn.Module):
         self.z0 = z0
         self.x0 = x0
 
+    def unpack_theta(self, theta):
+        l = self.forward_model.l
+        m = self.forward_model.neuronal.m
+
+        A_size = l * l
+        B_size = l * l * m
+        C_size = l * m
+
+        A = theta[:A_size].reshape(l, l)
+        B = theta[A_size:A_size + B_size].reshape(m, l, l)
+        C = theta[A_size + B_size:].reshape(l, m)
+
+        return A, B, C
+
     def forward(self, theta):
-        """
-        Returns MAP objective
-        """
 
-        # forward simulation
+        A, B, C = self.unpack_theta(theta)
+
+        self.forward_model.neuronal.A = A
+        self.forward_model.neuronal.B = B
+        self.forward_model.neuronal.C = C
+
         _, Y = self.forward_model.simulate(
-            u = self.u_fn,
-            t_eval = self.t_eval,
-            x0 = self.x0,
-            z0 = self.z0
+            u=self.u_fn,
+            t_eval=self.t_eval,
+            x0=self.x0,
+            z0=self.z0
         )
 
-        # Likelihood
         ll = self.likelihood_fn(
-            y_obs = self.y_obs,
-            y_pred = Y,
-            sigma = self.sigma
-        )
-        # Priors
-        lp = self.prior_fn(
-            theta = theta,
-            mu = self.mu,
-            sigma = self.sigma
+            y_obs=self.y_obs,
+            y_pred=Y,
+            sigma=self.sigma
         )
 
-        # Posterior
+        lp = self.prior_fn(
+            theta=theta,
+            mu=self.mu,
+            sigma=self.sigma_prior
+        )
+
         return ll + lp
