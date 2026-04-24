@@ -2,6 +2,10 @@ import numpy as np
 from scipy.optimize import minimize
 from dcm.inference.objectives import gaussian_log_posterior
 
+# ================================================================
+# NUMPY MAP OPTIMIZATION (SCIPY)
+# ================================================================
+
 def map_estimation(
         theta0,
         y_obs,
@@ -13,9 +17,18 @@ def map_estimation(
         verbose=False,
         cache_eval=True
 ):
+    """
+    MAP estimation using SciPy optimizer (NumPy version).
+
+    Optimizes the negative log-posterior using black-box optimization.
+    Includes optional caching to avoid repeated forward evaluations.
+    """
     trace = []
     cache = {} if cache_eval else None
 
+    # ------------------------------------------------------------
+    # Build objective function
+    # ------------------------------------------------------------
     def negative_log_posterior(theta):
         if cache_eval:
             key = tuple(np.round(theta, 8))
@@ -32,6 +45,9 @@ def map_estimation(
             print(f"Eval {len(trace)}: {val:.4f}")
         return val
 
+    # ------------------------------------------------------------
+    # Run optimization
+    # ------------------------------------------------------------
     result = minimize(
         fun=negative_log_posterior,
         x0=theta0,
@@ -40,6 +56,10 @@ def map_estimation(
     )
 
     return result, np.array(trace)
+
+# ================================================================
+# PYTORCH MAP OPTIMIZATION (DIFFERENTIABLE)
+# ================================================================
 
 import torch
 
@@ -51,8 +71,17 @@ def map_estimation_torch(
         method: str = "lbfgs",
         verbose: bool = True,
     ):
+    """
+    MAP estimation using PyTorch optimizers.
+
+    The model is a differentiable objective returning log-posterior.
+    Supports LBFGS (second-order) and Adam (first-order).
+    """
 
     trace = []
+    # ------------------------------------------------------------
+    # LBFGS (requires closure)
+    # ------------------------------------------------------------
     if method.lower() == "lbfgs":
         
         optimizer = torch.optim.LBFGS(
@@ -74,12 +103,17 @@ def map_estimation_torch(
             if verbose:
                 print(f"[LBFGS] loss: {loss.item():.6f}")
 
+            return loss
+
         optimizer.step(closure)
 
         return theta, torch.tensor(trace)
 
+    # ------------------------------------------------------------
+    # Adam (standard gradient descent)
+    # ------------------------------------------------------------
     elif method.lower() == "adam":
-        
+
         optimizer = torch.optim.Adam([theta], lr=lr)
 
         for i in range(n_steps):

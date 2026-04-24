@@ -35,6 +35,10 @@ def _check_time_grid(t_eval: Array) -> Array:
 
     return t_eval
 
+# -----------------------------------------------------------------------------
+# Euler and rk4 for numpy
+# -----------------------------------------------------------------------------
+
 def euler_integrate(
         f: Callable[[float, Array], Array],
         t_eval: Array,
