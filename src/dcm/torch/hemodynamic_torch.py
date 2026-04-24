@@ -22,6 +22,27 @@ class HemodynamicParametersTorch:
     rho: Tensor
     V0: float = 0.02
 
+    @staticmethod
+    def with_defaults(l: int, device: Optional[torch.device] = None):
+        """
+        Create a biologically plausible default parameter set.
+
+        This mirrors the NumPy implementation:
+        used for tests and quick simulations.
+        """
+
+        device = device or torch.device("cpu")
+
+        return HemodynamicParametersTorch(
+            l=l,
+            kappa=torch.full((l,), 0.65, device=device),
+            gamma=torch.full((l,), 0.41, device=device),
+            tau=torch.full((l,), 0.98, device=device),
+            alpha=torch.full((l,), 0.32, device=device),
+            rho=torch.full((l,), 0.34, device=device),
+            V0=0.02,
+        )
+
 
 # ---------------------------------------------------------------------
 # Hemodynamic model

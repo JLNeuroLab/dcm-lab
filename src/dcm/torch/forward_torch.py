@@ -25,12 +25,12 @@ class ForwardModelTorch:
         neuronal_model: NeuronalBilinearTorch,
         hemodynamic_model: HemodynamicBalloonTorch,
     ):
-        if neuronal_model.params.l != hemodynamic_model.params.l:
+        if neuronal_model.l != hemodynamic_model.l:
             raise ValueError("Neuronal and hemodynamic models must have same l")
 
         self.neuronal = neuronal_model
         self.hemodynamic = hemodynamic_model
-        self.l = neuronal_model.params.l
+        self.l = neuronal_model.l
 
     # ------------------------------------------------------------------
     # State helpers

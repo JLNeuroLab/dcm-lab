@@ -84,7 +84,7 @@ class NeuronalBilinearTorch(nn.Module):
 
     def initial_state(self, z0: Optional[Tensor] = None) -> Tensor:
         if z0 is None:
-            return torch.zeros(self.params.l)
+            return torch.zeros(self.l)
         return z0
 
 if __name__ == "__main__":
