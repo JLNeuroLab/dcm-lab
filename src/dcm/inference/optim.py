@@ -79,6 +79,7 @@ def map_estimation_torch(
     """
 
     trace = []
+    theta_trace = []
     # ------------------------------------------------------------
     # LBFGS (requires closure)
     # ------------------------------------------------------------
@@ -101,6 +102,7 @@ def map_estimation_torch(
             loss.backward()
 
             trace.append(loss.item())
+            theta_trace.append(theta.detach().cpu().clone())
 
             counter["i"] += 1 
             
@@ -112,7 +114,7 @@ def map_estimation_torch(
 
         optimizer.step(closure)
 
-        return theta, torch.tensor(trace)
+        return theta, torch.tensor(trace), theta_trace
 
     # ------------------------------------------------------------
     # Adam (standard gradient descent)
@@ -132,13 +134,14 @@ def map_estimation_torch(
             optimizer.step()
 
             trace.append(loss.item())
+            theta_trace.append(theta.detach().cpu().clone())
 
             if verbose and i % 10 == 0:
                 grad_norm = theta.grad.norm().item() if theta.grad is not None else 0.0
                 print(f"[ADAM {i}] loss={loss.item():.6f} | grad_norm={grad_norm:.6f}")
 
 
-        return theta, torch.tensor(trace)
+        return theta, torch.tensor(trace), theta_trace
 
     else:
         raise ValueError(f"Unknown method: {method}")

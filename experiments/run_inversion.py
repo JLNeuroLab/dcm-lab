@@ -14,7 +14,7 @@ from experiments.lib.io import (
 )
 
 from experiments.lib.utils import build_design_torch, build_model_torch
-from experiments.lib.diagnostics import save_dcm_diagnostics
+from experiments.lib.diagnostics import save_dcm_diagnostics, plot_theta_trajectories
 
 from dcm.inference.objectives import DCMInferenceModel
 from dcm.inference.optim import map_estimation_torch
@@ -136,7 +136,7 @@ def main(config_path: str):
 
     theta = theta0.clone().detach().requires_grad_(True)
 
-    theta_est, trace = map_estimation_torch(
+    theta_est, trace, theta_trace = map_estimation_torch(
         model=inference_model,
         theta=theta,
         n_steps=cfg["optimizer"]["max_iter"],
@@ -158,6 +158,9 @@ def main(config_path: str):
         lm = l * m
 
         A_est = theta_est[offset:offset + l2].reshape(l, l)
+        A_est_np = to_numpy(A_est)
+        eigvals = np.linalg.eigvals(A_est_np)
+        stable = bool(np.all(np.real(eigvals) < 0))
         offset += l2
 
         B_est = theta_est[offset:offset + l2 * m].reshape(m, l, l)
@@ -173,7 +176,6 @@ def main(config_path: str):
             u=u_fn,
             t_eval=design.t,
         )
-
     # ============================================================
     # SAVE RESULTS
     # ============================================================
@@ -187,14 +189,9 @@ def main(config_path: str):
         Y_est=to_numpy(Y_est),
         theta_est=theta_est_np,
         trace=np.array(trace),
-    )
-
-    save_json(
-        {
-            "final_loss": float(trace[-1]) if len(trace) > 0 else None,
-            "n_iterations": len(trace),
-        },
-        run_dir / "summary.json",
+        A_est=to_numpy(A_est),
+        B_est=to_numpy(B_est),
+        C_est=to_numpy(C_est),
     )
 
     # ============================================================
@@ -225,6 +222,12 @@ def main(config_path: str):
         C_est=to_numpy(C_est),
     )
 
+    plot_theta_trajectories(
+        theta_trace=theta_trace,
+        run_dir=run_dir,
+        l=model_inf.l,
+        m=model_inf.neuronal.m,
+    )
     print("✔ Inversion finished:", run_dir)
 
 
