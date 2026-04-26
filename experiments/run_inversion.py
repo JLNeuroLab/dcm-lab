@@ -14,7 +14,7 @@ from experiments.lib.io import (
 )
 
 from experiments.lib.utils import build_design_torch, build_model_torch
-from experiments.lib.diagnostics import save_dcm_diagnostics, plot_theta_trajectories
+from experiments.lib.diagnostics.diagnostics_dcm import save_dcm_diagnostics, plot_theta_trajectories
 
 from dcm.inference.objectives import DCMInferenceModel
 from dcm.inference.optim import map_estimation_torch

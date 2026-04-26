@@ -1,19 +1,23 @@
-name: inversion_2r_feedforward
+name: inversion_2r_modulatory
+
+# ============================================================
+# MODEL DIMENSIONS
+# ============================================================
 
 model:
   l: 2
   m: 1
 
+# ============================================================
+# SIMULATION SETTINGS
+# ============================================================
+
 simulation:
-  T: 10.0
+  T: 20.0
   dt: 0.1
-  # solver:
-  #   method: RK45
-  #   rtol: 1e-3
-  #   atol: 1e-6
 
 # ============================================================
-# TRUE PARAMETERS (DATA GENERATION)
+# TRUE MODEL (DATA GENERATION)
 # ============================================================
 
 true_model:
@@ -23,19 +27,18 @@ true_model:
       - [0.0, -0.5]
 
     B:
-      - [[0.0, 0.5],   # input modula connessione 0→1
+      - [[0.0, 0.5],
          [0.0, 0.0]]
 
     C:
       - [1.0]
-      - [0.2]   # anche regione 1 riceve input (fondamentale)
+      - [0.2]
 
   hemodynamic:
     use_defaults: true
 
-
 # ============================================================
-# INITIAL MODEL (INVERSION START)
+# INITIAL MODEL (INFERENCE STARTING POINT)
 # ============================================================
 
 init_model:
@@ -55,9 +58,8 @@ init_model:
   hemodynamic:
     use_defaults: true
 
-
 # ============================================================
-# PRIORS (FOR MAP)
+# PRIORS (MAP ESTIMATION)
 # ============================================================
 
 priors:
@@ -65,9 +67,11 @@ priors:
     A:
       - [0.0, 0.0]
       - [0.0, 0.0]
+
     B:
       - [[0.0, 0.0],
          [0.0, 0.0]]
+
     C:
       - [0.0]
       - [0.0]
@@ -77,7 +81,6 @@ priors:
     B: 0.1
     C: 0.1
 
-
 # ============================================================
 # NOISE MODEL
 # ============================================================
@@ -85,15 +88,23 @@ priors:
 noise:
   std: 0.03
 
-
 # ============================================================
-# OPTIMIZATION
+# DCM OPTIMIZATION (MAP)
 # ============================================================
 
 optimizer:
-  method: adam
-  max_iter: 50 
+  method: lbfgs
+  max_iter: 200
+  lr: 0.01
 
+# ============================================================
+# HYBRID RESIDUAL LEARNING
+# ============================================================
+
+hybrid:
+  alpha: 0.5          # strength residual dynamics
+  lr: 0.001           # MLP learning rate
+  epochs: 50         # training steps
 
 # ============================================================
 # INPUT DESIGN
@@ -104,7 +115,7 @@ inputs:
 
   stim:
     type: boxcar
-    onsets: [1.0, 3.0, 5.0, 7.0, 9.0]
+    onsets: [1.0, 3.0, 5.0, 14.0, 19.0]
     durations: [0.5, 0.5, 0.5, 0.5, 0.5]
     amplitudes: 1.0
 
@@ -115,4 +126,11 @@ inputs:
 hemodynamic:
   use_defaults: true
 
-# experiments/configs/inversion_2r_modulatory
+# ============================================================
+# OUTPUT SETTINGS (OPTIONAL BUT USEFUL)
+# ============================================================
+
+logging:
+  save_trace: true
+  save_theta: true
+  save_diagnostics: true

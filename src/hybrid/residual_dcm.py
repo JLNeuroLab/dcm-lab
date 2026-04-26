@@ -23,6 +23,7 @@ class ResidualDCM(nn.Module):
         self.bilinear = bilinear
         self.hemodynamic = hemodynamic
         self.mlp = mlp
+        self.integrator = rk4_integrate_torch
         self.alpha = alpha
 
         self.l = self.bilinear.l
@@ -66,7 +67,6 @@ class ResidualDCM(nn.Module):
         self,
         u: InputFn,
         t_eval: Tensor,
-        integrator: rk4_integrate_torch,
         z0: Optional[Tensor] = None,
         x0: Optional[Tensor] = None,
     ) -> tuple[Tensor, Tensor]:
@@ -78,7 +78,7 @@ class ResidualDCM(nn.Module):
             u_t = torch.as_tensor(u_t, device=state.device, dtype=state.dtype)
             return self.dynamics(t, state, u_t)
 
-        S = integrator(f, t_eval, s0)
+        S = self.integrator(f, t_eval, s0)
         Y = torch.stack([self.hemodynamic.bold(self.unpack(s)[1]) for s in S])
 
         return S, Y

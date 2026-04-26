@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
+from scipy.signal import correlate
 
 # ============================================================
 # IMPORT DESIGN
@@ -55,6 +57,25 @@ from dcm.torch.hemodynamic_torch import (
 from dcm.torch.forward_torch import ForwardModelTorch
 
 
+def _to_np(x):
+    return np.array(x)
+
+
+def _normalize(M):
+    return M / (np.max(np.abs(M)) + 1e-8)
+
+
+def _plot_matrix(ax, M, title):
+    im = ax.imshow(M, cmap="coolwarm", aspect="auto", vmin=-1, vmax=1)
+    ax.set_title(title)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+
+def autocorr(x):
+    x = x - np.mean(x)
+    ac = correlate(x, x, mode="full")
+    ac = ac[len(ac)//2:]
+    return ac / (ac[0] + 1e-8)
 # ============================================================
 # DESIGN BUILDERS
 # ============================================================
