@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-class Residual_MLP:
+class ResidualMLP(nn.Module):
 
     def __init__(self, l, m):
         super().__init__()
