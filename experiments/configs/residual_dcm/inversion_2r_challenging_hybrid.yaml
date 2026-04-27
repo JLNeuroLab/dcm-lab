@@ -1,0 +1,148 @@
+name: inversion_2r_challenging_hybrid
+
+model:
+  l: 2
+  m: 2   # number of inputs (increased for higher difficulty)
+
+simulation:
+  T: 18.0
+  dt: 0.1
+
+# ============================================================
+# TRUE MODEL (more coupled and less trivial dynamics)
+# ============================================================
+
+true_model:
+  neuronal:
+    A:
+    - [-0.6, 0.8]
+    - [-0.5, -0.4]   # strong bidirectional coupling
+
+    B:
+    - - [[0.0, 0.4],
+        [0.0, 0.0]]
+
+    - - [[0.3, 0.0],
+        [0.0, 0.2]]   # inputs modulate multiple connections
+
+    C:
+    - [1.0, 0.3]
+    - [0.5, 0.7]     # both regions receive both inputs
+
+  hemodynamic:
+    use_defaults: true
+
+# ============================================================
+# INIT MODEL (intentionally misspecified)
+# ============================================================
+
+init_model:
+  neuronal:
+    A:
+    - [-0.2, 0.1]
+    - [0.0, -0.2]    # weak and poorly structured connectivity
+
+    B:
+    - - [[0.0, 0.1],
+        [0.0, 0.0]]
+
+    - - [[0.1, 0.0],
+        [0.0, 0.05]]  # underestimated modulation
+
+    C:
+    - [0.3, 0.1]
+    - [0.1, 0.2]     # underestimated inputs
+
+  hemodynamic:
+    use_defaults: true
+
+# ============================================================
+# PRIORS (looser to allow exploration)
+# ============================================================
+
+priors:
+  mu:
+    A:
+    - [0.0, 0.0]
+    - [0.0, 0.0]
+
+    B:
+    - - [[0.0, 0.0],
+        [0.0, 0.0]]
+
+    - - [[0.0, 0.0],
+        [0.0, 0.0]]
+
+    C:
+    - [0.0, 0.0]
+    - [0.0, 0.0]
+
+  sigma:
+    A: 0.2   # increased variance → less restrictive prior
+    B: 0.2
+    C: 0.2
+
+# ============================================================
+# NOISE (moderate difficulty)
+# ============================================================
+
+noise:
+  std: 0.05  # increased noise reduces signal-to-noise ratio
+
+# ============================================================
+# OPTIMIZER
+# ============================================================
+
+optimizer:
+  method: lbfgs
+  max_iter: 300
+  lr: 0.01
+
+# ============================================================
+# HYBRID MODEL
+# ============================================================
+
+hybrid:
+  alpha: 0.6   # balance between DCM and MLP contribution
+  lr: 0.001
+  epochs: 80   # more training needed for harder task
+
+# ============================================================
+# INPUTS (overlapping and partially correlated)
+# ============================================================
+
+inputs:
+  names:
+  - stim1
+  - stim2
+
+  stim1:
+    type: boxcar
+    onsets: [1.0, 4.5, 9.0, 13.0]
+    durations: [0.8, 1.0, 0.6, 0.7]
+    amplitudes: 1.0
+
+  stim2:
+    type: boxcar
+    onsets: [2.0, 5.0, 10.0, 14.0]
+    durations: [1.2, 0.7, 0.8, 0.6]
+    amplitudes: 0.8
+
+# ============================================================
+# HEMODYNAMIC MODEL
+# ============================================================
+
+hemodynamic:
+  use_defaults: true
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+logging:
+  save_trace: true
+  save_theta: true
+  save_diagnostics: true
+
+
+# experiments/configs/residual_dcm/inversion_2r_challenging_hybrid

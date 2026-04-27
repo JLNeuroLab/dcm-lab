@@ -38,6 +38,9 @@ def save_hybrid_diagnostics(
     B_true, B_est = map(_to_np, (B_true, B_est))
     C_true, C_est = map(_to_np, (C_true, C_est))
 
+    B_true = np.squeeze(B_true)
+    B_est  = np.squeeze(B_est)
+
     t = np.array(t)
 
     # ============================================================
@@ -83,16 +86,34 @@ def save_hybrid_diagnostics(
     # MATRICES
     # ============================================================
 
-    fig, axes = plt.subplots(3, 2, figsize=(12, 10))
+    # ============================================================
+    # MATRICES
+    # ============================================================
 
+    m = B_true.shape[0]
+
+    fig, axes = plt.subplots(2 + m, 2, figsize=(12, 4 + 3*m))
+
+    # ---- A ----
     _plot_matrix(axes[0, 0], _normalize(A_true), "A true")
     _plot_matrix(axes[0, 1], _normalize(A_est), "A est")
 
-    _plot_matrix(axes[1, 0], _normalize(np.mean(B_true, axis=0)), "B true")
-    _plot_matrix(axes[1, 1], _normalize(np.mean(B_est, axis=0)), "B est")
+    # ---- B (one per input) ----
+    for j in range(m):
+        _plot_matrix(
+            axes[1 + j, 0],
+            _normalize(B_true[j]),
+            f"B true (input {j})"
+        )
+        _plot_matrix(
+            axes[1 + j, 1],
+            _normalize(B_est[j]),
+            f"B est (input {j})"
+        )
 
-    _plot_matrix(axes[2, 0], _normalize(C_true), "C true")
-    _plot_matrix(axes[2, 1], _normalize(C_est), "C est")
+    # ---- C ----
+    _plot_matrix(axes[1 + m, 0], _normalize(C_true), "C true")
+    _plot_matrix(axes[1 + m, 1], _normalize(C_est), "C est")
 
     plt.tight_layout()
     plt.savefig(fig_dir / "matrices.png", dpi=200)

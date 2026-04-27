@@ -36,7 +36,7 @@ class ForwardModelTorch:
     # ------------------------------------------------------------------
 
     def pack(self, z: Tensor, x: Tensor) -> Tensor:
-        return torch.cat([z, x], dim=0)
+        return torch.cat([z.view(-1), x.view(-1)], dim=0)
 
     def unpack(self, state: Tensor) -> tuple[Tensor, Tensor]:
         if state.shape != (5 * self.l,):
@@ -96,6 +96,7 @@ class ForwardModelTorch:
 
             u_t = u(t)
             u_t = torch.as_tensor(u_t, dtype=state.dtype, device=state.device)
+            u_t = u_t.view(-1)
 
             z_dot = self.neuronal.dynamics(t, z, u_t)
             x_dot = self.hemodynamic.dynamics(t, x, z)
