@@ -151,17 +151,40 @@ def main(config_path: str):
     )
 
     # ============================================================
-    # BEFORE MLP TRAINING
+    # BEFORE MLP TRAINING: DCM AFTER MAP OPTIMIZATION
     # ============================================================
 
     with torch.no_grad():
-        S0, Y_hybrid_0 = hybrid_model.simulate(
+        S0_dcm, Y_dcm = model_inf.simulate(
             u=u_fn,
             t_eval=t_eval,
             z0=torch.zeros(l, device=device),
             x0=model_inf.hemodynamic.initial_state(),
         )
 
+    # ============================================================
+    # DCM DYNAMICS ON PURE DCM TRAJECTORY
+    # ============================================================
+
+    dz_dcm_pure = []
+
+    for i in range(len(S0_dcm) - 1):
+        z = S0_dcm[i][:l]
+        u = u_fn(float(t_eval[i]))
+        dz_dcm_pure.append(model_inf.neuronal.dynamics(0.0, z, u))
+
+    dz_dcm_pure = torch.stack(dz_dcm_pure)
+
+    # ============================================================
+    # BEFORE MLP TRAINING: DCM AFTER MAP OPTIMIZATION
+    # ============================================================
+    with torch.no_grad():
+        S0_hybrid_0, Y_hybrid_0 = hybrid_model.simulate(
+            u=u_fn,
+            t_eval=t_eval,
+            z0=torch.zeros(l, device=device),
+            x0=model_inf.hemodynamic.initial_state(),
+        )
     # ============================================================
     # TRAIN MLP
     # ============================================================
@@ -236,7 +259,7 @@ def main(config_path: str):
         Y_true=to_numpy(Y_true),
         Y_obs=to_numpy(Y_obs),
 
-        Y_hybrid_0=to_numpy(Y_hybrid_0),
+        Y_dcm=to_numpy(Y_dcm),
         Y_pred=to_numpy(Y_hybrid_T),
 
         trace=np.array(trace),
@@ -253,8 +276,9 @@ def main(config_path: str):
         C_true=to_numpy(model_true.neuronal.C),
         C_est=to_numpy(C_est),
 
-        dz_dcm=to_numpy(dz_dcm),
-        dz_res=to_numpy(dz_res),
+        dz_dcm=to_numpy(dz_dcm),  # dcm on hybrid trajectory (dcm + initialized mlp)
+        dz_res=to_numpy(dz_res),    # mlp trajectory
+        dz_dcm_pure=to_numpy(dz_dcm_pure),  # pure dcm trajectory without mlp
     )
 
 

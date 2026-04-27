@@ -167,6 +167,7 @@ def rk4_integrate_torch(
         Simulated trajectory
     """
     t_eval = _check_time_grid(t_eval)
+    t_eval = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
 
     z = z0
     Z = [z.clone()]
