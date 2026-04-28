@@ -33,6 +33,8 @@ class ForwardModelTorch(nn.Module):
         self.neuronal = neuronal_model
         self.hemodynamic = hemodynamic_model
         self.l = neuronal_model.l
+
+        self.device = torch.device(self.hemodynamic.kappa.device)
     # ------------------------------------------------------------------
     # State helpers
     # ------------------------------------------------------------------
@@ -56,7 +58,7 @@ class ForwardModelTorch(nn.Module):
         x0: Optional[Tensor] = None,
     ) -> Tensor:
 
-        device = self.hemodynamic.kappa.device
+        device = self.device
 
         z0_ = self.neuronal.initial_state(z0)
         x0_ = self.hemodynamic.initial_state(x0)
@@ -98,7 +100,7 @@ class ForwardModelTorch(nn.Module):
         x0: Optional[Tensor] = None,
     ) -> tuple[Tensor, Tensor]:
 
-        device = self.hemodynamic.kappa.device
+        device = self.device
 
         s0 = self.initial_state(z0, x0).to(device)
         t_eval = t_eval.to(device)
@@ -107,7 +109,7 @@ class ForwardModelTorch(nn.Module):
             z, x = self.unpack(state)
 
             u_t = u(t)
-            u_t = u_t.to(state.device)
+            u_t = u_t.to(device)
             u_t = u_t.view(-1)
 
             z_dot = self.neuronal.dynamics(t, z, u_t)

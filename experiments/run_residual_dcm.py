@@ -48,11 +48,6 @@ def main(config_path: str):
     cfg = load_yaml(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print("CUDA WARMUP START")
-    torch.randn(1, device=device)
-    torch.cuda.synchronize()
-    print("CUDA WARMUP DONE")
-
     run_dir = make_run_dir(cfg.get("name", "inversion"))
     save_yaml(cfg, run_dir / "config.yaml")
 
@@ -63,9 +58,6 @@ def main(config_path: str):
     design = build_design_torch(cfg=cfg, device=device)
     u_fn = design.callable()
     t_eval = design.t
-    print("\n[DESIGN CHECK]")
-    print("t_eval device:", t_eval.device if torch.is_tensor(t_eval) else type(t_eval))
-    print("U callable test:", u_fn(0.0).device if torch.is_tensor(u_fn(0.0)) else type(u_fn(0.0)))
     # ============================================================
     # TRUE MODEL
     # ============================================================
@@ -74,17 +66,7 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "true_model"),
         device=device
     )
-    print("\n[TRUE MODEL CHECK]")
-    print("A device:", model_true.neuronal.A.device)
-    print("B device:", model_true.neuronal.B.device)
-    print("C device:", model_true.neuronal.C.device)
 
-    print("\n[HEMO DEVICE CHECK]")
-    print("kappa:", model_true.hemodynamic.kappa.device)
-    print("gamma:", model_true.hemodynamic.gamma.device)
-    print("tau:", model_true.hemodynamic.tau.device)
-    print("alpha:", model_true.hemodynamic.alpha.device)
-    print("rho:", model_true.hemodynamic.rho.device)
     with torch.no_grad():
         S_true, Y_true = model_true.simulate(u=u_fn, t_eval=t_eval)
 
@@ -102,10 +84,6 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "init_model"),
         device=device
     )
-    print("\n[INFERENCE MODEL CHECK]")
-    print("A device:", model_true.neuronal.A.device)
-    print("B device:", model_true.neuronal.B.device)
-    print("C device:", model_true.neuronal.C.device)
 
     A0 = torch.tensor(cfg["init_model"]["neuronal"]["A"], device=device)
     B0 = torch.tensor(cfg["init_model"]["neuronal"]["B"], device=device)
@@ -113,9 +91,6 @@ def main(config_path: str):
 
     theta0 = torch.cat([A0.flatten(), B0.flatten(), C0.flatten()])
     mu_theta = theta0.clone()
-    print("\n[THETA CHECK]")
-    print("theta0 device:", theta0.device)
-    print("model_inf A:", model_inf.neuronal.A.device)
 
     sigma_cfg = cfg["priors"]["sigma"]
 

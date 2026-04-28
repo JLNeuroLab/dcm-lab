@@ -57,9 +57,9 @@ class BilinearNeuronalTorch(nn.Module):
         u: (m,)
         """
 
-        A = self.A.to(z.device)          # (l, l)
-        B = self.B.to(z.device)          # (m, l, l)
-        C = self.C.to(z.device)          # (l, m)
+        A = self.A          # (l, l)
+        B = self.B          # (m, l, l)
+        C = self.C          # (l, m)
 
         # sanity checks
         if z.shape != (self.l,):
@@ -84,7 +84,7 @@ class BilinearNeuronalTorch(nn.Module):
 
     def initial_state(self, z0: Optional[Tensor] = None) -> Tensor:
         if z0 is None:
-            return torch.zeros(self.l)
+            return torch.zeros(self.l, device=self.A.device)
         return z0
 
 if __name__ == "__main__":

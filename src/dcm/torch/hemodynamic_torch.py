@@ -90,7 +90,7 @@ class HemodynamicBalloonTorch(nn.Module):
                 torch.ones(self.l, device=device),
             ], dim=0)
 
-        return x0.to(device)
+        return x0.to(device=self.kappa.device)
 
     # -----------------------------------------------------------------
     # unpack / pack
@@ -120,9 +120,8 @@ class HemodynamicBalloonTorch(nn.Module):
         f_safe = torch.clamp(f, 1e-6)
         v_safe = torch.clamp(v, 1e-6)
 
-        alpha = self.alpha
-        inv_alpha = 1.0 / alpha
-        f_out = torch.exp(inv_alpha * torch.log(v_safe))
+        inv_alpha = 1.0 / self.alpha
+        f_out = torch.pow(v_safe, inv_alpha)
         E = self._E(f_safe, self.rho)
 
         s_dot = z_t - self.kappa * s - self.gamma * (f_safe - 1.0)
