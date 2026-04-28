@@ -1,5 +1,6 @@
 from __future__ import annotations
 import torch
+import torch.nn as nn
 from typing import Callable, Optional
 
 from dcm.torch.neuronal_torch import BilinearNeuronalTorch
@@ -10,7 +11,7 @@ Tensor = torch.Tensor
 InputFn = Callable[[float], Tensor]
 
 
-class ForwardModelTorch:
+class ForwardModelTorch(nn.Module):
     """
     Full DCM generative model (Torch version).
 
@@ -25,6 +26,7 @@ class ForwardModelTorch:
         neuronal_model: BilinearNeuronalTorch,
         hemodynamic_model: HemodynamicBalloonTorch,
     ):
+        super().__init__()
         if neuronal_model.l != hemodynamic_model.l:
             raise ValueError("Neuronal and hemodynamic models must have same l")
 
@@ -53,8 +55,15 @@ class ForwardModelTorch:
         z0: Optional[Tensor] = None,
         x0: Optional[Tensor] = None,
     ) -> Tensor:
+
+        device = self.hemodynamic.kappa.device
+
         z0_ = self.neuronal.initial_state(z0)
         x0_ = self.hemodynamic.initial_state(x0)
+
+        z0_ = z0_.to(device)
+        x0_ = x0_.to(device)
+
         return self.pack(z0_, x0_)
 
     # ------------------------------------------------------------------
@@ -89,13 +98,16 @@ class ForwardModelTorch:
         x0: Optional[Tensor] = None,
     ) -> tuple[Tensor, Tensor]:
 
-        s0 = self.initial_state(z0, x0)
+        device = self.hemodynamic.kappa.device
+
+        s0 = self.initial_state(z0, x0).to(device)
+        t_eval = t_eval.to(device)
 
         def f(t: float, state: Tensor) -> Tensor:
             z, x = self.unpack(state)
 
             u_t = u(t)
-            u_t = torch.as_tensor(u_t, dtype=state.dtype, device=state.device)
+            u_t = u_t.to(state.device)
             u_t = u_t.view(-1)
 
             z_dot = self.neuronal.dynamics(t, z, u_t)

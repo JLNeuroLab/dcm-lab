@@ -48,6 +48,11 @@ def main(config_path: str):
     cfg = load_yaml(config_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    print("CUDA WARMUP START")
+    torch.randn(1, device=device)
+    torch.cuda.synchronize()
+    print("CUDA WARMUP DONE")
+
     run_dir = make_run_dir(cfg.get("name", "inversion"))
     save_yaml(cfg, run_dir / "config.yaml")
 
@@ -74,6 +79,12 @@ def main(config_path: str):
     print("B device:", model_true.neuronal.B.device)
     print("C device:", model_true.neuronal.C.device)
 
+    print("\n[HEMO DEVICE CHECK]")
+    print("kappa:", model_true.hemodynamic.kappa.device)
+    print("gamma:", model_true.hemodynamic.gamma.device)
+    print("tau:", model_true.hemodynamic.tau.device)
+    print("alpha:", model_true.hemodynamic.alpha.device)
+    print("rho:", model_true.hemodynamic.rho.device)
     with torch.no_grad():
         S_true, Y_true = model_true.simulate(u=u_fn, t_eval=t_eval)
 
@@ -91,7 +102,7 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "init_model"),
         device=device
     )
-    print("\n[TRUE MODEL CHECK]")
+    print("\n[INFERENCE MODEL CHECK]")
     print("A device:", model_true.neuronal.A.device)
     print("B device:", model_true.neuronal.B.device)
     print("C device:", model_true.neuronal.C.device)
@@ -125,7 +136,7 @@ def main(config_path: str):
         t_eval=t_eval,
         u_fn=u_fn,
         z0=torch.zeros(l, device=device),
-        x0=model_inf.hemodynamic.initial_state()
+        x0=model_inf.hemodynamic.initial_state().to(device)
     )
 
     # ============================================================
@@ -154,14 +165,14 @@ def main(config_path: str):
     # HYBRID MODEL
     # ============================================================
 
-    mlp = ResidualMLP(l, m)
+    mlp = ResidualMLP(l, m).to(device)
 
     hybrid_model = ResidualDCM(
         bilinear=model_inf.neuronal,
         hemodynamic=model_inf.hemodynamic,
         mlp=mlp,
         alpha=cfg["hybrid"]["alpha"]
-    )
+    ).to(device)
 
     # ============================================================
     # BEFORE MLP TRAINING: DCM AFTER MAP OPTIMIZATION
@@ -183,7 +194,8 @@ def main(config_path: str):
 
     for i in range(len(S0_dcm) - 1):
         z = S0_dcm[i][:l]
-        u = u_fn((t_eval[i]).item())
+        u = u_fn(t_eval[i].item())
+        u = u.to(device)
         dz_dcm_pure.append(model_inf.neuronal.dynamics(0.0, z, u))
 
     dz_dcm_pure = torch.stack(dz_dcm_pure)
@@ -196,7 +208,7 @@ def main(config_path: str):
             u=u_fn,
             t_eval=t_eval,
             z0=torch.zeros(l, device=device),
-            x0=model_inf.hemodynamic.initial_state(),
+            x0=model_inf.hemodynamic.initial_state().to(device),
         )
     # ============================================================
     # TRAIN MLP
@@ -241,7 +253,8 @@ def main(config_path: str):
 
         for i in range(len(S_final) - 1):
             z = S_final[i][:l]
-            u = u_fn(float(t_eval[i]))
+            u = u_fn(t_eval[i].item())
+            u = u.to(device)
 
             dz_dcm.append(model_inf.neuronal.dynamics(0.0, z, u))
             dz_res.append(mlp(z, u))

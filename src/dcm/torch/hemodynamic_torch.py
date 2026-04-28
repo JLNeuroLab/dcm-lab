@@ -80,17 +80,17 @@ class HemodynamicBalloonTorch(nn.Module):
     # -----------------------------------------------------------------
 
     def initial_state(self, x0: Optional[Tensor] = None) -> Tensor:
-        l = self.l
+        device = self.kappa.device
 
         if x0 is None:
             return torch.cat([
-                torch.zeros(l),  # s
-                torch.ones(l),   # f
-                torch.ones(l),   # v
-                torch.ones(l),   # q
+                torch.zeros(self.l, device=device),
+                torch.ones(self.l, device=device),
+                torch.ones(self.l, device=device),
+                torch.ones(self.l, device=device),
             ], dim=0)
 
-        return x0
+        return x0.to(device)
 
     # -----------------------------------------------------------------
     # unpack / pack
@@ -115,19 +115,14 @@ class HemodynamicBalloonTorch(nn.Module):
         l = self.l
         device = x.device
 
-        # move buffers to same device
-        kappa = self.kappa.to(device)
-        gamma = self.gamma.to(device)
-        tau   = self.tau.to(device)
-        alpha = self.alpha.to(device)
-        rho   = self.rho.to(device)
-
         s, f, v, q = self.unpack(x)
 
         f_safe = torch.clamp(f, 1e-6)
         v_safe = torch.clamp(v, 1e-6)
 
-        f_out = torch.pow(v_safe, 1.0 / self.alpha)
+        alpha = self.alpha
+        inv_alpha = 1.0 / alpha
+        f_out = torch.exp(inv_alpha * torch.log(v_safe))
         E = self._E(f_safe, self.rho)
 
         s_dot = z_t - self.kappa * s - self.gamma * (f_safe - 1.0)

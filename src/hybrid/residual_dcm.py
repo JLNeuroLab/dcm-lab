@@ -47,8 +47,11 @@ class ResidualDCM(nn.Module):
         z0: Optional[Tensor] = None,
         x0: Optional[Tensor] = None,
     ) -> Tensor:
-        z0_ = self.bilinear.initial_state(z0)
-        x0_ = self.hemodynamic.initial_state(x0)
+        device = self.hemodynamic.kappa.device
+
+        z0_ = self.bilinear.initial_state(z0).to(device)
+        x0_ = self.hemodynamic.initial_state(x0).to(device)
+
         return self.pack(z0_, x0_)
 
     def dynamics(self, t: float, state: Tensor, u_t: Tensor) -> Tensor:

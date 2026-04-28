@@ -176,8 +176,8 @@ def rk4_integrate_torch(
     Z = [z.clone()]
 
     for i in range(len(t_eval) - 1):
-        t = float(t_eval[i])
-        dt = float(t_eval[i + 1] - t_eval[i])
+        t = t_eval[i]
+        dt = t_eval[i + 1] - t_eval[i]
 
         dt_tensor = dt
 

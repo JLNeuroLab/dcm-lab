@@ -207,10 +207,10 @@ def build_model_torch(cfg: dict, param_key="neuronal", device=None):
     if params.l != l or params.m != m:
         raise ValueError("Model dimension mismatch")
 
-    neuronal = BilinearNeuronalTorch(params)
+    neuronal = BilinearNeuronalTorch(params).to(device)
 
     hemo = HemodynamicBalloonTorch(
         HemodynamicParametersTorch.with_defaults(l, device=device)
-    )
+    ).to(device)
 
-    return ForwardModelTorch(neuronal, hemo)
+    return ForwardModelTorch(neuronal, hemo).to(device)
