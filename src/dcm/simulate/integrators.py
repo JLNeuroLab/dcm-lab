@@ -25,7 +25,10 @@ def _check_time_grid(t_eval: Array) -> Array:
     -------
     t_eval : np.ndarray
     """
-    t_eval = np.asarray(t_eval, dtype=float)
+    if torch.is_tensor(t_eval):
+        t_eval = t_eval.detach().cpu().numpy()
+    else:
+        t_eval = np.asarray(t_eval, dtype=float)
 
     if t_eval.ndim != 1 or t_eval.size < 2:
         raise ValueError("t_eval must be 1D with at least 2 points")
