@@ -58,7 +58,9 @@ def main(config_path: str):
     design = build_design_torch(cfg=cfg, device=device)
     u_fn = design.callable()
     t_eval = design.t
-
+    print("\n[DESIGN CHECK]")
+    print("t_eval device:", t_eval.device if torch.is_tensor(t_eval) else type(t_eval))
+    print("U callable test:", u_fn(0.0).device if torch.is_tensor(u_fn(0.0)) else type(u_fn(0.0)))
     # ============================================================
     # TRUE MODEL
     # ============================================================
@@ -67,6 +69,10 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "true_model"),
         device=device
     )
+    print("\n[TRUE MODEL CHECK]")
+    print("A device:", model_true.neuronal.A.device)
+    print("B device:", model_true.neuronal.B.device)
+    print("C device:", model_true.neuronal.C.device)
 
     with torch.no_grad():
         S_true, Y_true = model_true.simulate(u=u_fn, t_eval=t_eval)
@@ -85,6 +91,10 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "init_model"),
         device=device
     )
+    print("\n[TRUE MODEL CHECK]")
+    print("A device:", model_true.neuronal.A.device)
+    print("B device:", model_true.neuronal.B.device)
+    print("C device:", model_true.neuronal.C.device)
 
     A0 = torch.tensor(cfg["init_model"]["neuronal"]["A"], device=device)
     B0 = torch.tensor(cfg["init_model"]["neuronal"]["B"], device=device)
@@ -92,6 +102,9 @@ def main(config_path: str):
 
     theta0 = torch.cat([A0.flatten(), B0.flatten(), C0.flatten()])
     mu_theta = theta0.clone()
+    print("\n[THETA CHECK]")
+    print("theta0 device:", theta0.device)
+    print("model_inf A:", model_inf.neuronal.A.device)
 
     sigma_cfg = cfg["priors"]["sigma"]
 
@@ -159,7 +172,7 @@ def main(config_path: str):
             u=u_fn,
             t_eval=t_eval,
             z0=torch.zeros(l, device=device),
-            x0=model_inf.hemodynamic.initial_state(),
+            x0=model_inf.hemodynamic.initial_state().to(device),
         )
 
     # ============================================================
@@ -170,7 +183,7 @@ def main(config_path: str):
 
     for i in range(len(S0_dcm) - 1):
         z = S0_dcm[i][:l]
-        u = u_fn(float(t_eval[i]))
+        u = u_fn((t_eval[i]).item())
         dz_dcm_pure.append(model_inf.neuronal.dynamics(0.0, z, u))
 
     dz_dcm_pure = torch.stack(dz_dcm_pure)
