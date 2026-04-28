@@ -113,6 +113,14 @@ class HemodynamicBalloonTorch(nn.Module):
 
     def dynamics(self, t: float, x: Tensor, z_t: Tensor) -> Tensor:
         l = self.l
+        device = x.device
+
+        # move buffers to same device
+        kappa = self.kappa.to(device)
+        gamma = self.gamma.to(device)
+        tau   = self.tau.to(device)
+        alpha = self.alpha.to(device)
+        rho   = self.rho.to(device)
 
         s, f, v, q = self.unpack(x)
 
