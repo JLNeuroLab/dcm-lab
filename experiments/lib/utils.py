@@ -200,6 +200,7 @@ def build_model_torch(cfg: dict, param_key="neuronal", device=None):
 
     A = torch.tensor(cfg[param_key]["A"], dtype=torch.float32, device=device)
     B = torch.tensor(cfg[param_key]["B"], dtype=torch.float32, device=device)
+    B = B.squeeze()  
     C = torch.tensor(cfg[param_key]["C"], dtype=torch.float32, device=device)
 
     params = BilinearParametersTorch(A=A, B=B, C=C)
