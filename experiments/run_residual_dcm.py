@@ -203,7 +203,7 @@ def main(config_path: str):
             x0=model_inf.hemodynamic.initial_state(),
         )
 
-        loss = ((Y_pred - Y_true) ** 2).mean()
+        loss = ((Y_pred - Y_obs) ** 2).mean()
 
         optimizer.zero_grad()
         loss.backward()
