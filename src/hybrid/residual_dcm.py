@@ -17,7 +17,8 @@ class ResidualDCM(nn.Module):
                  bilinear: BilinearNeuronalTorch,
                  hemodynamic: HemodynamicBalloonTorch,
                  mlp: ResidualMLP,
-                 alpha: float = 0.1
+                 alpha: float = 0.1,
+                 mode : str = "dual"
             ):
         super().__init__()
         self.bilinear = bilinear
@@ -28,6 +29,9 @@ class ResidualDCM(nn.Module):
 
         self.l = self.bilinear.l
         self.m = self.bilinear.m
+
+        self.mode = mode
+        self._config_mode()
 
     def pack(self, z: Tensor, x: Tensor) -> Tensor:
         return torch.cat([z, x], dim=0)
@@ -54,6 +58,14 @@ class ResidualDCM(nn.Module):
 
         return self.pack(z0_, x0_)
 
+    def _config_mode(self):
+        if self.mode == "dual":
+            for p in self.bilinear.parameters():
+                p.requires_grad = False
+        elif self.mode == "joint":
+            for p in self.bilinear.parameters():
+                p.requires_grad = True
+    
     def dynamics(self, t: float, state: Tensor, u_t: Tensor) -> Tensor:
         z, x = self.unpack(state)
 

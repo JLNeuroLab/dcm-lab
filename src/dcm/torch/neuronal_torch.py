@@ -43,9 +43,9 @@ class BilinearNeuronalTorch(nn.Module):
         super().__init__()
 
         # frozen physics
-        self.register_buffer("A", params.A.clone().detach())
-        self.register_buffer("B", params.B.clone().detach())
-        self.register_buffer("C", params.C.clone().detach())
+        self.A = nn.Parameter(params.A.clone())
+        self.B = nn.Parameter(params.B.clone())
+        self.C = nn.Parameter(params.C.clone())
         
         self.l = params.l
         self.m = params.m

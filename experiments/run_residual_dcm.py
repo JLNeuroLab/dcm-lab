@@ -132,9 +132,10 @@ def main(config_path: str):
     # update neuronal parameters
     A_est, B_est, C_est = inference_model.unpack_theta(theta_est)
 
-    model_inf.neuronal.A = A_est
-    model_inf.neuronal.B = B_est
-    model_inf.neuronal.C = C_est
+    with torch.no_grad():
+        model_inf.neuronal.A.copy_(A_est)
+        model_inf.neuronal.B.copy_(B_est)
+        model_inf.neuronal.C.copy_(C_est)
 
     # ============================================================
     # HYBRID MODEL
@@ -146,7 +147,8 @@ def main(config_path: str):
         bilinear=model_inf.neuronal,
         hemodynamic=model_inf.hemodynamic,
         mlp=mlp,
-        alpha=cfg["hybrid"]["alpha"]
+        alpha=cfg["hybrid"]["alpha"],
+        mode = cfg["hybrid"]["mode"]
     ).to(device)
 
     # ============================================================
@@ -200,7 +202,7 @@ def main(config_path: str):
             u=u_fn,
             t_eval=t_eval,
             z0=torch.zeros(l, device=device),
-            x0=model_inf.hemodynamic.initial_state(),
+            x0=model_inf.hemodynamic.initial_state().to(device),
         )
 
         loss = ((Y_pred - Y_true) ** 2).mean()
@@ -221,7 +223,7 @@ def main(config_path: str):
             u=u_fn,
             t_eval=t_eval,
             z0=torch.zeros(l, device=device),
-            x0=model_inf.hemodynamic.initial_state(),
+            x0=model_inf.hemodynamic.initial_state().to(device),
         )
 
         dz_dcm, dz_res = [], []

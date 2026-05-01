@@ -94,9 +94,10 @@ class DCMInferenceModel(nn.Module):
 
         A, B, C = self.unpack_theta(theta)
 
-        self.forward_model.neuronal.A = A
-        self.forward_model.neuronal.B = B
-        self.forward_model.neuronal.C = C
+        with torch.no_grad():
+            self.forward_model.neuronal.A.data.copy_(A)
+            self.forward_model.neuronal.B.data.copy_(B)
+            self.forward_model.neuronal.C.data.copy_(C)
 
         _, Y = self.forward_model.simulate(
             u=self.u_fn,

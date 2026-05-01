@@ -200,8 +200,23 @@ def build_model_torch(cfg: dict, param_key="neuronal", device=None):
 
     A = torch.tensor(cfg[param_key]["A"], dtype=torch.float32, device=device)
     B = torch.tensor(cfg[param_key]["B"], dtype=torch.float32, device=device)
-    B = B.squeeze()  
     C = torch.tensor(cfg[param_key]["C"], dtype=torch.float32, device=device)
+
+    # ============================================================
+        # HARD SHAPE ENFORCEMENT 
+    # ============================================================
+
+    A = A.reshape(l, l)
+
+    # B should be (m, l, l)
+    if B.dim() == 4:
+        B = B.squeeze(1)
+
+    B = B.reshape(m, l, l)
+
+    C = C.reshape(l, m)
+
+    # ============================================================
 
     params = BilinearParametersTorch(A=A, B=B, C=C)
 

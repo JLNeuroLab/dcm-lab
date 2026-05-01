@@ -106,7 +106,7 @@ hybrid:
   alpha: 0.6   # balance between DCM and MLP contribution
   lr: 0.001
   epochs: 80   # more training needed for harder task
-
+  mode: "dual"
 # ============================================================
 # INPUTS (overlapping and partially correlated)
 # ============================================================
