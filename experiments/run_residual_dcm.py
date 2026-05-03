@@ -84,13 +84,25 @@ def main(config_path: str):
         cfg=extract_model_cfg(cfg, "init_model"),
         device=device
     )
+    # ============================================================
+    # Priors definition
 
     A0 = torch.tensor(cfg["init_model"]["neuronal"]["A"], device=device)
     B0 = torch.tensor(cfg["init_model"]["neuronal"]["B"], device=device)
     C0 = torch.tensor(cfg["init_model"]["neuronal"]["C"], device=device)
 
     theta0 = torch.cat([A0.flatten(), B0.flatten(), C0.flatten()])
-    mu_theta = theta0.clone()
+    mu_cfg = cfg["priors"]["mu"]
+
+    A_mu = torch.tensor(mu_cfg["A"], device=device, dtype=torch.float32)
+    B_mu = torch.tensor(mu_cfg["B"], device=device, dtype=torch.float32)
+    C_mu = torch.tensor(mu_cfg["C"], device=device, dtype=torch.float32)
+
+    mu_theta = torch.cat([
+        A_mu.flatten(),
+        B_mu.flatten(),
+        C_mu.flatten()
+    ])
 
     sigma_cfg = cfg["priors"]["sigma"]
 
@@ -148,7 +160,6 @@ def main(config_path: str):
         hemodynamic=model_inf.hemodynamic,
         mlp=mlp,
         alpha=cfg["hybrid"]["alpha"],
-        mode = cfg["hybrid"]["mode"]
     ).to(device)
 
     # ============================================================

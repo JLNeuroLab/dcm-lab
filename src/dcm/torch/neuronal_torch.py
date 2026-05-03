@@ -10,7 +10,7 @@ from typing import Optional
 # Define parameters class for bilinear equation
 Tensor = torch.Tensor
 
-@dataclass(frozen=True)
+@dataclass
 class BilinearParametersTorch:
     """
     Torch-native parameters for bilinear neuronal DCM.
@@ -50,6 +50,22 @@ class BilinearNeuronalTorch(nn.Module):
         self.l = params.l
         self.m = params.m
 
+    def freeze(self):
+        for p in self.parameters():
+            p.requires_grad = False
+
+    def unfreeze(self):
+        for p in self.parameters():
+            p.requires_grad = True
+
+    def freeze_A(self):
+        self.A.requires_grad = False
+
+    def freeze_B(self):
+        self.B.requires_grad = False
+
+    def freeze_C(self):
+        self.C.requires_grad = False
 
     def dynamics(self, t: float, z: Tensor, u_t: Tensor) -> Tensor:
         """

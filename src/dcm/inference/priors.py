@@ -43,3 +43,17 @@ def gaussian_log_prior_torch(
     lp = -0.5 * torch.sum((residuals / sigma) ** 2)
 
     return lp
+
+def gaussian_log_prior_model(model, mu_dict, sigma_dict):
+    lp = 0.0
+
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+
+        mu = mu_dict[name]
+        sigma = sigma_dict[name]
+
+        lp = lp - 0.5 * torch.sum(((param - mu) / sigma) ** 2)
+
+    return lp

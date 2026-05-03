@@ -106,16 +106,7 @@ class ForwardModelTorch(nn.Module):
         t_eval = t_eval.to(device)
 
         def f(t: float, state: Tensor) -> Tensor:
-            z, x = self.unpack(state)
-
-            u_t = u(t)
-            u_t = u_t.to(device)
-            u_t = u_t.view(-1)
-
-            z_dot = self.neuronal.dynamics(t, z, u_t)
-            x_dot = self.hemodynamic.dynamics(t, x, z)
-
-            return self.pack(z_dot, x_dot)
+            return self.dynamics(t, state, u(t))
 
         S = rk4_integrate_torch(f, t_eval, s0)
         Y = torch.stack([self.observe(s) for s in S])
