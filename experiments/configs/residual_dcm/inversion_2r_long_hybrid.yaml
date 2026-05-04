@@ -1,63 +1,63 @@
-name: inversion_2r_challenging_hybrid
+name: inversion_2r_long_hybrid
 
 model:
   l: 2
-  m: 2   # number of inputs (increased for higher difficulty)
+  m: 2
 
 simulation:
-  T: 18.0
+  T: 60.0
   dt: 0.1
 
 # ============================================================
-# TRUE MODEL (more coupled and less trivial dynamics)
+# TRUE MODEL
 # ============================================================
 
 true_model:
   neuronal:
     A:
     - [-0.6, 0.8]
-    - [-0.5, -0.4]   # strong bidirectional coupling
+    - [-0.5, -0.4]
 
     B:
     - - [[0.0, 0.4],
         [0.0, 0.0]]
 
     - - [[0.3, 0.0],
-        [0.0, 0.2]]   # inputs modulate multiple connections
+        [0.0, 0.2]]
 
     C:
     - [1.0, 0.3]
-    - [0.5, 0.7]     # both regions receive both inputs
+    - [0.5, 0.7]
 
   hemodynamic:
     use_defaults: true
 
 # ============================================================
-# INIT MODEL (intentionally misspecified)
+# INIT MODEL
 # ============================================================
 
 init_model:
   neuronal:
     A:
     - [-0.2, 0.1]
-    - [0.0, -0.2]    # weak and poorly structured connectivity
+    - [0.0, -0.2]
 
     B:
     - - [[0.0, 0.1],
         [0.0, 0.0]]
 
     - - [[0.1, 0.0],
-        [0.0, 0.05]]  # underestimated modulation
+        [0.0, 0.05]]
 
     C:
     - [0.3, 0.1]
-    - [0.1, 0.2]     # underestimated inputs
+    - [0.1, 0.2]
 
   hemodynamic:
     use_defaults: true
 
 # ============================================================
-# PRIORS (looser to allow exploration)
+# PRIORS
 # ============================================================
 
 priors:
@@ -78,16 +78,16 @@ priors:
     - [0.1, 0.1]
 
   sigma:
-    A: 0.5   
+    A: 0.5
     B: 0.5
     C: 0.5
 
 # ============================================================
-# NOISE (moderate difficulty)
+# NOISE
 # ============================================================
 
 noise:
-  std: 0.05  # increased noise reduces signal-to-noise ratio
+  std: 0.05
 
 # ============================================================
 # OPTIMIZER
@@ -104,14 +104,17 @@ optimizer:
 
 hybrid:
   alpha: 0.4
-  lr: 0.001          # MLP learning rate
-  lr_dcm: 0.0001     # DCM params learning rate (10x smaller — A/B/C are sensitive)
-  epochs: 200
+  lr: 0.001
+  lr_dcm: 0.0001
+  epochs: 300
   mode: "joint"
   clip_grad_norm: 1.0
   stability_weight: 0.01
+
 # ============================================================
-# INPUTS (overlapping and partially correlated)
+# INPUTS — 6 presentations per stimulus spread across 60s
+# stim1 and stim2 are temporally offset to create varied
+# combinations of co-activation and isolated responses
 # ============================================================
 
 inputs:
@@ -121,14 +124,14 @@ inputs:
 
   stim1:
     type: boxcar
-    onsets: [1.0, 4.5, 9.0, 13.0]
-    durations: [0.8, 1.0, 0.6, 0.7]
+    onsets: [1.0, 10.0, 20.0, 30.0, 42.0, 52.0]
+    durations: [1.5, 2.0, 1.5, 2.5, 1.5, 2.0]
     amplitudes: 1.0
 
   stim2:
     type: boxcar
-    onsets: [2.0, 5.0, 10.0, 14.0]
-    durations: [1.2, 0.7, 0.8, 0.6]
+    onsets: [4.0, 14.0, 25.0, 35.0, 46.0, 56.0]
+    durations: [2.0, 1.5, 2.0, 1.5, 2.5, 1.5]
     amplitudes: 0.8
 
 # ============================================================
@@ -146,6 +149,3 @@ logging:
   save_trace: true
   save_theta: true
   save_diagnostics: true
-
-
-# experiments/configs/residual_dcm/inversion_2r_challenging_hybrid

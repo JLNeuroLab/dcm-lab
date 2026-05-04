@@ -199,13 +199,30 @@ def main(config_path: str):
             x0=model_inf.hemodynamic.initial_state().to(device),
         )
     # ============================================================
-    # TRAIN MLP
+    # JOINT OR MLP-ONLY TRAINING
     # ============================================================
 
-    optimizer = torch.optim.Adam(
-        mlp.parameters(),
-        lr=cfg["hybrid"]["lr"]
-    )
+    mode = cfg["hybrid"].get("mode", "mlp_only")
+    is_joint = mode == "joint"
+
+    if is_joint:
+        hybrid_model.bilinear.set_train_mode("trainable")
+        lr_dcm = cfg["hybrid"].get("lr_dcm", cfg["hybrid"]["lr"] * 0.1)
+        optimizer = torch.optim.Adam([
+            {"params": hybrid_model.bilinear.parameters(), "lr": lr_dcm},
+            {"params": hybrid_model.mlp.parameters(),      "lr": cfg["hybrid"]["lr"]},
+        ])
+    else:
+        hybrid_model.bilinear.set_train_mode("frozen")
+        optimizer = torch.optim.Adam(
+            mlp.parameters(),
+            lr=cfg["hybrid"]["lr"]
+        )
+
+    clip_norm       = cfg["hybrid"].get("clip_grad_norm", 1.0)
+    stab_weight     = cfg["hybrid"].get("stability_weight", 0.01)
+
+    print(f"Training mode: {mode}")
 
     for epoch in range(cfg["hybrid"]["epochs"]):
 
@@ -218,12 +235,24 @@ def main(config_path: str):
 
         loss = ((Y_pred - Y_obs) ** 2).mean()
 
+        if is_joint:
+            eigvals = torch.linalg.eigvals(hybrid_model.bilinear.A)
+            loss = loss + stab_weight * torch.relu(eigvals.real).sum()
+
         optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(hybrid_model.parameters(), clip_norm)
         optimizer.step()
 
         if epoch % 10 == 0:
-            print(f"[MLP {epoch}] loss={loss.item():.6f}")
+            print(f"[{mode} {epoch}] loss={loss.item():.6f}")
+
+    # after joint training, A/B/C in the model have moved — re-read them for diagnostics
+    if mode == "joint":
+        A_est = model_inf.neuronal.A.detach()
+        B_est = model_inf.neuronal.B.detach()
+        C_est = model_inf.neuronal.C.detach()
+        theta_est = torch.cat([A_est.flatten(), B_est.flatten(), C_est.flatten()])
 
     # ============================================================
     # FINAL SIMULATION

@@ -86,7 +86,7 @@ def map_estimation_torch(
     if method.lower() == "lbfgs":
         
         optimizer = torch.optim.LBFGS(
-            model.parameters(),
+            [theta],
             lr=lr,
             max_iter=n_steps,
             line_search_fn="strong_wolfe"
@@ -108,9 +108,7 @@ def map_estimation_torch(
             counter["i"] += 1
 
             if verbose and counter["i"] % 5 == 0:
-                grad_norm = sum(
-                    (p.grad.norm().item() for p in model.parameters() if p.grad is not None)
-                )
+                grad_norm = theta.grad.norm().item() if theta.grad is not None else 0.0
                 print(f"[LBFGS {counter['i']}] loss={loss.item():.6f} | grad_norm={grad_norm:.6f}")
 
             return loss
@@ -124,7 +122,7 @@ def map_estimation_torch(
     # ------------------------------------------------------------
     elif method.lower() == "adam":
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam([theta], lr=lr)
 
         for i in range(n_steps):
 
@@ -138,11 +136,7 @@ def map_estimation_torch(
 
             trace.append(loss.item())
 
-            theta_trace.append({
-                "A": model.neuronal.A.detach().cpu().clone(),
-                "B": model.neuronal.B.detach().cpu().clone(),
-                "C": model.neuronal.C.detach().cpu().clone(),
-            })
+            theta_trace.append(theta.detach().cpu().clone())
 
         return theta, torch.tensor(trace), theta_trace
 

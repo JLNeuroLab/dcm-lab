@@ -46,26 +46,39 @@ class BilinearNeuronalTorch(nn.Module):
         self.A = nn.Parameter(params.A.clone())
         self.B = nn.Parameter(params.B.clone())
         self.C = nn.Parameter(params.C.clone())
-        
+
         self.l = params.l
         self.m = params.m
 
-    def freeze(self):
-        for p in self.parameters():
-            p.requires_grad = False
+    def set_train_mode(self, mode: str):
+        """
+        mode:
+            - "frozen"  → no gradients
+            - "trainable" → all gradients enabled
+            - "A_frozen"
+            - "B_frozen"
+            - "C_frozen"
+        """
 
-    def unfreeze(self):
-        for p in self.parameters():
-            p.requires_grad = True
+        if mode == "frozen":
+            for p in self.parameters():
+                p.requires_grad = False
 
-    def freeze_A(self):
-        self.A.requires_grad = False
+        elif mode == "trainable":
+            for p in self.parameters():
+                p.requires_grad = True
 
-    def freeze_B(self):
-        self.B.requires_grad = False
+        elif mode == "A_frozen":
+            self.A.requires_grad = False
 
-    def freeze_C(self):
-        self.C.requires_grad = False
+        elif mode == "B_frozen":
+            self.B.requires_grad = False
+
+        elif mode == "C_frozen":
+            self.C.requires_grad = False
+
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
     def dynamics(self, t: float, z: Tensor, u_t: Tensor) -> Tensor:
         """

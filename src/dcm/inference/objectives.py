@@ -91,13 +91,28 @@ class DCMInferenceModel(nn.Module):
         return A, B, C
 
     def forward(self, theta):
+        A, B, C = self.unpack_theta(theta)
 
-        _, Y = self.forward_model.simulate(
-            u=self.u_fn,
-            t_eval=self.t_eval,
-            x0=self.x0,
-            z0=self.z0
-        )
+        neuronal = self.forward_model.neuronal
+        orig_A, orig_B, orig_C = neuronal.A, neuronal.B, neuronal.C
+
+        try:
+            # bypass nn.Module.__setattr__ type check so plain tensors derived
+            # from theta can sit in _parameters — computation graph stays intact
+            neuronal._parameters['A'] = A
+            neuronal._parameters['B'] = B
+            neuronal._parameters['C'] = C
+
+            _, Y = self.forward_model.simulate(
+                u=self.u_fn,
+                t_eval=self.t_eval,
+                x0=self.x0,
+                z0=self.z0
+            )
+        finally:
+            neuronal._parameters['A'] = orig_A
+            neuronal._parameters['B'] = orig_B
+            neuronal._parameters['C'] = orig_C
 
         ll = self.likelihood_fn(
             y_obs=self.y_obs,
