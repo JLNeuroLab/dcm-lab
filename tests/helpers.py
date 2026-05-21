@@ -1,9 +1,9 @@
 import numpy as np
 
-from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
-from dcm.models.hemodynamic_balloon import HemodynamicBalloonModel, HemodynamicParameters
-from dcm.models.forward import ForwardModel
-from dcm.models.parametrization import NeuronalParameterization
+from dcm.base.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
+from dcm.base.hemodynamic_balloon import HemodynamicBalloonModel, HemodynamicParameters
+from dcm.base.forward import ForwardModel
+from dcm.base.parametrization import NeuronalParameterization
 from dcm.inference.forward_adapter import ForwardAdapter
 from dcm.simulate.design import make_time_grid, boxcar, InputDesign
 

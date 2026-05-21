@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
+from dcm.base.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
 from dcm.simulate.adapters import neuronal_rhs_factory
 from dcm.simulate.integrators import euler_integrate, rk4_integrate
 

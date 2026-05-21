@@ -21,6 +21,8 @@ from dcm.inference.optim import map_estimation_torch
 from dcm.inference.likelihoods import gaussian_log_likelihood_torch
 from dcm.inference.priors import gaussian_log_prior_torch
 
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # ============================================================
 # UTILS SAFE CONVERSION
@@ -240,7 +242,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/inversion_2r_feedforward.yaml",
+        default="experiments/configs/dcm/inversion_2r_feedforward.yaml",
     )
     args = parser.parse_args()
 

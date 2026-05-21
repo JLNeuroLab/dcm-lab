@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
+from dcm.base.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
 from dcm.torch.neuronal_torch import BilinearNeuronalTorch, BilinearParametersTorch
 from dcm.simulate.adapters import neuronal_rhs_factory_torch, neuronal_rhs_factory
 from dcm.simulate.integrators import rk4_integrate_torch, rk4_integrate

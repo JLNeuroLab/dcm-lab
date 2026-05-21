@@ -16,11 +16,11 @@ from __future__ import annotations
 import numpy as np
 from typing import Callable, Optional
 
-from dcm.models.neuronal_bilinear import (
+from dcm.base.neuronal_bilinear import (
     BilinearNeuronalModel,
     BilinearParameters,
 )
-from dcm.models.hemodynamic_balloon import (
+from dcm.base.hemodynamic_balloon import (
     HemodynamicBalloonModel,
     HemodynamicParameters,
 )

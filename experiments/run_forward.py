@@ -7,6 +7,8 @@ from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz, sav
 from experiments.lib.utils import build_model_numpy, build_design_numpy
 from experiments.lib.plotting import plot_and_save_separate, plot_summary
 
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 def main(config_path: str):
     cfg = load_yaml(config_path)
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/forward_1r_2inputs_events.yaml",
+        default="experiments/configs/dcm/forward_1r_2inputs_events.yaml",
         help="Path to YAML config file",
     )
     args = parser.parse_args()

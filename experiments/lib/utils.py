@@ -15,7 +15,7 @@ from dcm.simulate.design import (
     InputDesign as InputDesign,
 )
 
-from dcm.simulate.design_torch import (
+from dcm.input.fmri.design_fmri import (
     make_time_grid as make_time_grid_torch,
     boxcar as boxcar_torch,
     events as events_torch,
@@ -27,34 +27,34 @@ from dcm.simulate.design_torch import (
 # MODELS (NUMPY)
 # ============================================================
 
-from dcm.models.neuronal_bilinear import (
+from dcm.base.neuronal_bilinear import (
     BilinearParameters,
     BilinearNeuronalModel,
 )
 
-from dcm.models.hemodynamic_balloon import (
+from dcm.base.hemodynamic_balloon import (
     HemodynamicParameters,
     HemodynamicBalloonModel,
 )
 
-from dcm.models.forward import ForwardModel
+from dcm.base.forward import ForwardModel
 
 
 # ============================================================
 # MODELS (TORCH)
 # ============================================================
 
-from dcm.torch.neuronal_torch import (
+from dcm.models.fmri.neuronal_torch import (
     BilinearNeuronalTorch,
     BilinearParametersTorch,
 )
 
-from dcm.torch.hemodynamic_torch import (
+from dcm.models.fmri.hemodynamic_torch import (
     HemodynamicBalloonTorch,
     HemodynamicParametersTorch,
 )
 
-from dcm.torch.forward_torch import ForwardModelTorch
+from dcm.models.fmri.forward_torch import ForwardModelTorch
 
 
 def _to_np(x):

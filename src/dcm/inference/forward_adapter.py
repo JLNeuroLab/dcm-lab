@@ -1,9 +1,9 @@
 from __future__ import annotations
 import numpy as np
 
-from dcm.models.forward import ForwardModel
-from dcm.models.parametrization import NeuronalParameterization
-from dcm.models.neuronal_bilinear import BilinearParameters
+from dcm.base.forward import ForwardModel
+from dcm.base.parametrization import NeuronalParameterization
+from dcm.base.neuronal_bilinear import BilinearParameters
 
 Array = np.ndarray
 

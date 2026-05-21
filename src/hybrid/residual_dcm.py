@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from typing import Callable, Optional
 
-from dcm.torch.neuronal_torch import BilinearNeuronalTorch
-from dcm.torch.hemodynamic_torch import HemodynamicBalloonTorch
+from dcm.models.fmri.neuronal_torch import BilinearNeuronalTorch
+from dcm.models.fmri.hemodynamic_torch import HemodynamicBalloonTorch
 from dcm.simulate.integrators import rk4_integrate_torch
 from ml.mlp import ResidualMLP
 

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from dcm.models.hemodynamic_balloon import (
+from dcm.base.hemodynamic_balloon import (
         HemodynamicBalloonModel,
         HemodynamicParameters,
 )

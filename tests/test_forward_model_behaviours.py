@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from dcm.models.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
-from dcm.models.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel
-from dcm.models.forward import ForwardModel
+from dcm.base.neuronal_bilinear import BilinearNeuronalModel, BilinearParameters
+from dcm.base.hemodynamic_balloon import HemodynamicParameters, HemodynamicBalloonModel
+from dcm.base.forward import ForwardModel
 
 @pytest.fixture
 def dcm_model():
