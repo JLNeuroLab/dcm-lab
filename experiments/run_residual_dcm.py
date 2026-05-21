@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import torch
 import numpy as np
 import argparse
@@ -46,7 +49,8 @@ def extract_model_cfg(cfg, key):
 def main(config_path: str):
 
     cfg = load_yaml(config_path)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
 
     run_dir = make_run_dir(cfg.get("name", "inversion"))
     save_yaml(cfg, run_dir / "config.yaml")
@@ -334,7 +338,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/residual_dcm/inversion_2r_modulatory.yaml",
+        default="experiments/configs/residual_dcm/inversion_2r_challenging_hybrid.yaml",
     )
     args = parser.parse_args()
 
