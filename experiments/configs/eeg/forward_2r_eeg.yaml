@@ -1,0 +1,20 @@
+name: eeg_forward_2r
+
+simulation:
+  T: 0.5       # 500 ms
+  dt: 0.001    # 1 ms resolution
+
+model:
+  l: 2
+  m: 1
+
+inputs:
+  names: [u0]
+  u0:
+    type: boxcar
+    onsets: [0.05]       # stimulus at 50 ms
+    durations: [0.02]    # 20 ms pulse
+    amplitudes: 1.0
+
+observation:
+  n_sensors: 2           # = l, identity lead field

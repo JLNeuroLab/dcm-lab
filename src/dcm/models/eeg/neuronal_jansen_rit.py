@@ -37,10 +37,11 @@ class JansenRitParametersTorch:
     r: Tensor       # sigmoid steepness (mV^-1)
 
     # --- within-region connections (fixed, from Jansen & Rit 1995) ---
-    gamma_1: float = 1.0    # pyramidal -> spiny stellate
-    gamma_2: float = 0.8    # spiny stellate -> pyramidal
-    gamma_3: float = 0.25   # pyramidal -> inhibitory interneurons
-    gamma_4: float = 0.25   # inhibitory interneurons -> pyramidal
+    # C1=135 is the base constant; ratios give C2=108, C3=C4=33.75
+    gamma_1: float = 135.0   # pyramidal -> spiny stellate          (C1)
+    gamma_2: float = 108.0   # spiny stellate -> pyramidal          (C2 = 0.8*C1)
+    gamma_3: float = 33.75   # pyramidal -> inhibitory interneurons (C3 = 0.25*C1)
+    gamma_4: float = 33.75   # inhibitory interneurons -> pyramidal (C4 = 0.25*C1)
 
     @property
     def l(self) -> int:
@@ -57,22 +58,27 @@ class JansenRitParametersTorch:
         starting points for estimated parameters.
         Prior expectations from David et al. 2006 Table 1.
         """
+        def _off_diag(val):
+            M = torch.full((l, l), val)
+            M.fill_diagonal_(0.0)
+            return M
+
         return JansenRitParametersTorch(
             He    = torch.tensor(4.0),
             Hi    = torch.tensor(32.0),
-            tau_e = torch.tensor(8.0),
-            tau_i = torch.tensor(16.0),
-            C_F   = torch.full((l, l), 32.0),
-            C_B   = torch.full((l, l), 16.0),
-            C_L   = torch.full((l, l), 4.0),
+            tau_e = torch.tensor(0.008),   # 8 ms in seconds
+            tau_i = torch.tensor(0.016),   # 16 ms in seconds
+            C_F   = _off_diag(32.0),
+            C_B   = _off_diag(16.0),
+            C_L   = _off_diag(4.0),
             P     = torch.ones(l, m),
             e0    = torch.tensor(2.5),
             v0    = torch.tensor(6.0),
             r     = torch.tensor(0.56),
-            gamma_1 = 1.0,
-            gamma_2 = 0.8,
-            gamma_3 = 0.25,
-            gamma_4 = 0.25,
+            gamma_1 = 135.0,
+            gamma_2 = 108.0,
+            gamma_3 = 33.75,
+            gamma_4 = 33.75,
         )
     
 class JansenRitNeuronal(nn.Module):

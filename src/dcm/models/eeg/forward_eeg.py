@@ -20,9 +20,9 @@ class EEGForwardModel(nn.Module):
         if neuronal.l != observation.l:
             raise ValueError("neuronal and observation models must have the same l")
         
-        self.l = neuronal.l
-        self.neuronal = neuronal
+        self.neuronal    = neuronal
         self.observation = observation
+        self.l           = neuronal.l
 
     def initial_state(self) -> Tensor:
         return self.neuronal.initial_state()   # (9*l,)

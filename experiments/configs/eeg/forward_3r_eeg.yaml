@@ -1,0 +1,47 @@
+name: eeg_forward_3r
+
+simulation:
+  T: 0.6       # 600 ms
+  dt: 0.001    # 1 ms resolution
+
+model:
+  l: 3
+  m: 2
+  # u0 drives region 0 only, u1 drives region 2 only
+  P:
+    - [1.0, 0.0]
+    - [0.0, 0.0]
+    - [0.0, 1.0]
+  # feedforward chain: 0→1→2
+  C_F:
+    - [0.0, 0.0, 0.0]
+    - [32.0, 0.0, 0.0]
+    - [0.0, 32.0, 0.0]
+  # backward: 1→0, 2→1
+  C_B:
+    - [0.0, 16.0, 0.0]
+    - [0.0, 0.0, 16.0]
+    - [0.0, 0.0, 0.0]
+  # no lateral connections
+  C_L:
+    - [0.0, 0.0, 0.0]
+    - [0.0, 0.0, 0.0]
+    - [0.0, 0.0, 0.0]
+
+# u0: tonic background drive (puts region 0 in oscillatory regime)
+# u1: brief phasic event to region 2 (ERP-like perturbation)
+inputs:
+  names: [u0, u1]
+  u0:
+    type: boxcar
+    onsets: [0.0]
+    durations: [0.6]
+    amplitudes: 220.0
+  u1:
+    type: boxcar
+    onsets: [0.20]
+    durations: [0.03]
+    amplitudes: 50.0
+
+observation:
+  n_sensors: 3           # = l, identity lead field

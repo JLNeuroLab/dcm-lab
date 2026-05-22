@@ -15,7 +15,7 @@ from dcm.simulate.design import (
     InputDesign as InputDesign,
 )
 
-from dcm.input.fmri.design_fmri import (
+from dcm.input.boxcar_events import (
     make_time_grid as make_time_grid_torch,
     boxcar as boxcar_torch,
     events as events_torch,
@@ -43,7 +43,7 @@ from dcm.base.forward import ForwardModel
 # ============================================================
 # MODELS (TORCH)
 # ============================================================
-
+# fmri
 from dcm.models.fmri.neuronal_torch import (
     BilinearNeuronalTorch,
     BilinearParametersTorch,
@@ -55,6 +55,16 @@ from dcm.models.fmri.hemodynamic_torch import (
 )
 
 from dcm.models.fmri.forward_torch import ForwardModelTorch
+
+# eeg
+from dcm.models.eeg.neuronal_jansen_rit import (
+    JansenRitNeuronal, 
+    JansenRitParametersTorch
+)
+from dcm.models.eeg.lead_field import (
+    LeadFieldParametrization
+)
+from dcm.models.eeg.forward_eeg import EEGForwardModel
 
 
 def _to_np(x):
@@ -230,3 +240,28 @@ def build_model_torch(cfg: dict, param_key="neuronal", device=None):
     ).to(device)
 
     return ForwardModelTorch(neuronal, hemo).to(device)
+
+def build_eeg_model_torch(cfg: dict, device=None) -> EEGForwardModel:
+    if device is None:
+        device = torch.device("cpu")
+
+    l         = int(cfg["model"]["l"])
+    m         = int(cfg["model"]["m"])
+    n_sensors = cfg.get("observation", {}).get("n_sensors", l)
+
+    params = JansenRitParametersTorch.with_defaults(l=l, m=m)
+
+    model_cfg = cfg.get("model", {})
+    if "P" in model_cfg:
+        params.P   = torch.tensor(model_cfg["P"],   dtype=torch.float32, device=device).reshape(l, m)
+    if "C_F" in model_cfg:
+        params.C_F = torch.tensor(model_cfg["C_F"], dtype=torch.float32, device=device).reshape(l, l)
+    if "C_B" in model_cfg:
+        params.C_B = torch.tensor(model_cfg["C_B"], dtype=torch.float32, device=device).reshape(l, l)
+    if "C_L" in model_cfg:
+        params.C_L = torch.tensor(model_cfg["C_L"], dtype=torch.float32, device=device).reshape(l, l)
+
+    neuronal    = JansenRitNeuronal(params).to(device)
+    observation = LeadFieldParametrization(l=l, n_sensors=n_sensors).to(device)
+
+    return EEGForwardModel(neuronal, observation).to(device)
