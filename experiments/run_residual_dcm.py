@@ -22,7 +22,7 @@ from dcm.inference.optim import map_estimation_torch
 from dcm.inference.likelihoods import gaussian_log_likelihood_torch
 from dcm.inference.priors import gaussian_log_prior_torch
 
-from hybrid.residual_dcm import ResidualDCM
+from ude.hybrid.residual_dcm import ResidualDCM
 from ml.mlp import ResidualMLP
 
 

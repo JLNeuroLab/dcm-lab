@@ -22,7 +22,11 @@ from dcm.inference.likelihoods import gaussian_log_likelihood_torch
 from dcm.inference.priors import gaussian_log_prior_torch
 
 import os
+import time
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+def _t(label, t0):
+    print(f"  [timing] {label}: {time.perf_counter() - t0:.2f}s")
 
 # ============================================================
 # UTILS SAFE CONVERSION
@@ -52,8 +56,12 @@ def extract_model_cfg(cfg, key):
 
 def main(config_path: str):
 
+    t0 = time.perf_counter()
+
     cfg = load_yaml(config_path)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+    print(f"Device: {device}")
 
     run_dir = make_run_dir(cfg.get("name", "inversion"))
     save_yaml(cfg, run_dir / "config.yaml")
@@ -64,6 +72,7 @@ def main(config_path: str):
 
     design = build_design_torch(cfg, device=device)
     u_fn = design.callable()
+    _t("design", t0); t0 = time.perf_counter()
 
     # ============================================================
     # TRUE MODEL + DATA
@@ -86,6 +95,7 @@ def main(config_path: str):
 
     noise_std = torch.tensor(cfg["noise"]["std"], device=device)
     Y_obs = Y_true + noise_std * torch.randn_like(Y_true)
+    _t("true model simulate", t0); t0 = time.perf_counter()
 
     # ============================================================
     # INFERENCE MODEL
@@ -131,11 +141,13 @@ def main(config_path: str):
         z0=torch.zeros(l, device=device),
         x0=model_inf.hemodynamic.initial_state(),
     )
+    _t("inference model setup", t0); t0 = time.perf_counter()
 
     # ============================================================
     # OPTIMIZATION
     # ============================================================
 
+    print(f"Starting MAP ({cfg['optimizer']['method']}, {cfg['optimizer']['max_iter']} steps)...")
     theta = theta0.clone().detach().requires_grad_(True)
 
     theta_est, trace, theta_trace = map_estimation_torch(
@@ -146,6 +158,7 @@ def main(config_path: str):
         method=cfg["optimizer"]["method"].lower(),
         verbose=True,
     )
+    _t("MAP estimation", t0); t0 = time.perf_counter()
 
     theta_est_np = to_numpy(theta_est)
 
@@ -178,6 +191,8 @@ def main(config_path: str):
             u=u_fn,
             t_eval=design.t,
         )
+    _t("final simulation", t0); t0 = time.perf_counter()
+
     # ============================================================
     # SAVE RESULTS
     # ============================================================
@@ -195,6 +210,7 @@ def main(config_path: str):
         B_est=to_numpy(B_est),
         C_est=to_numpy(C_est),
     )
+    _t("save npz", t0); t0 = time.perf_counter()
 
     # ============================================================
     # DIAGNOSTICS
@@ -230,6 +246,7 @@ def main(config_path: str):
         l=model_inf.l,
         m=model_inf.neuronal.m,
     )
+    _t("diagnostics", t0)
     print("✔ Inversion finished:", run_dir)
 
 

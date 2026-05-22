@@ -138,6 +138,10 @@ def map_estimation_torch(
 
             theta_trace.append(theta.detach().cpu().clone())
 
+            if verbose and i % 10 == 0:
+                grad_norm = theta.grad.norm().item() if theta.grad is not None else 0.0
+                print(f"[Adam {i}/{n_steps}] loss={loss.item():.6f} | grad_norm={grad_norm:.6f}")
+
         return theta, torch.tensor(trace), theta_trace
 
     else:
