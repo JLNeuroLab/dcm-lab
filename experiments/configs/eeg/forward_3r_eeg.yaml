@@ -24,9 +24,9 @@ model:
     - [0.0, 0.0, 0.0]
   # no lateral connections
   C_L:
+    - [0.0, 16.0, 0.0]
     - [0.0, 0.0, 0.0]
-    - [0.0, 0.0, 0.0]
-    - [0.0, 0.0, 0.0]
+    - [16.0, 0.0, 0.0]
 
 # u0: tonic background drive (puts region 0 in oscillatory regime)
 # u1: brief phasic event to region 2 (ERP-like perturbation)

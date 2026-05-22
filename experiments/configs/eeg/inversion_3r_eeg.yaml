@@ -1,0 +1,84 @@
+name: inversion_3r_eeg
+
+# ── shared dimensions ────────────────────────────────────────
+model:
+  l: 3
+  m: 2
+
+# ── time and integration ─────────────────────────────────────
+simulation:
+  T: 1.0
+  dt: 0.005
+
+# ── inputs (same for true and init model) ────────────────────
+inputs:
+  names: [u0, u1]
+  u0:
+    type: boxcar
+    onsets: [0.0]
+    durations: [1.0]
+    amplitudes: 220.0
+  u1:
+    type: boxcar
+    onsets: [0.20, 0.50, 0.75]
+    durations: [0.03, 0.03, 0.03]
+    amplitudes: 50.0
+
+# ── true model (data generation) ─────────────────────────────
+true_model:
+  neuronal:
+    C_F:
+      - [0.0,  0.0,  0.0]
+      - [32.0, 0.0,  0.0]
+      - [0.0,  32.0, 0.0]
+    C_B:
+      - [0.0,  16.0, 0.0]
+      - [0.0,  0.0,  16.0]
+      - [0.0,  0.0,  0.0]
+    C_L:
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+    P:
+      - [1.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 1.0]
+
+# ── init model (inversion starting point) ────────────────────
+# deliberately wrong: weaker connections, no backward, wrong P
+init_model:
+  neuronal:
+    C_F:
+      - [0.0,  0.0,  0.0]
+      - [16.0, 0.0,  0.0]
+      - [0.0,  16.0, 0.0]
+    C_B:
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+    C_L:
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0]
+    P:
+      - [0.5, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 0.5]
+
+# ── priors ───────────────────────────────────────────────────
+priors:
+  sigma:
+    C_F: 20.0
+    C_B: 20.0
+    C_L: 1.0
+    P:   0.5
+
+# ── noise ────────────────────────────────────────────────────
+noise:
+  std: 0.5
+
+# ── optimizer ────────────────────────────────────────────────
+optimizer:
+  method: lbfgs
+  max_iter: 100
+  lr: 1.0

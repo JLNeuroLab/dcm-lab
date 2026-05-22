@@ -127,3 +127,90 @@ class DCMInferenceModel(nn.Module):
         )
 
         return ll + lp
+    
+class EEGInferenceModel(nn.Module):
+
+    def __init__(
+        self,
+        forward_model,
+        likelihood_fn,
+        prior_fn,
+        y_obs,
+        sigma,
+        mu,
+        sigma_prior,
+        t_eval,
+        u_fn,
+        z0,
+    ):
+        
+        super().__init__()
+
+        self.forward_model = forward_model
+        self.likelihood_fn = likelihood_fn
+        self.prior_fn = prior_fn
+
+        self.register_buffer("y_obs", y_obs)
+        self.register_buffer("sigma", sigma)
+        self.register_buffer("mu", mu)
+        self.register_buffer("sigma_prior", sigma_prior)
+        self.register_buffer("t_eval", t_eval)
+
+        self.u_fn = u_fn
+        self.z0 = z0
+
+    def unpack_theta(self, theta):
+        l = self.forward_model.l
+        m = self.forward_model.neuronal.m
+
+        cf_size = l * l
+        cb_size = l * l
+        cl_size = l * l
+        p_size = l * m
+
+        offset = 0
+
+        C_F = theta[offset: offset + cf_size].reshape(l, l); offset += cf_size
+        C_B = theta[offset:offset + cb_size].reshape(l, l); offset += cb_size
+        C_L = theta[offset:offset + cl_size].reshape(l, l); offset += cl_size
+        P   = theta[offset:offset + p_size ].reshape(l, m)
+
+        return C_F, C_B, C_L, P
+    
+    def forward(self, theta):
+
+        C_F, C_B, C_L, P = self.unpack_theta(theta)
+
+        neuronal = self.forward_model.neuronal
+        origin_cf, origin_cb, origin_cl, origin_p = neuronal.C_F, neuronal.C_B, neuronal.C_L, neuronal.P
+
+        try:
+            neuronal._parameters['C_F'] = C_F
+            neuronal._parameters['C_B'] = C_B
+            neuronal._parameters['C_L'] = C_L
+            neuronal._parameters['P']   = P
+
+            _, Y = self.forward_model.simulate(
+                u=self.u_fn,
+                t_eval=self.t_eval,
+                z0=self.z0,
+            )
+        finally:
+            neuronal._parameters['C_F'] = origin_cf
+            neuronal._parameters['C_B'] = origin_cb
+            neuronal._parameters['C_L'] = origin_cl
+            neuronal._parameters['P']   = origin_p
+
+        ll = self.likelihood_fn(
+            y_obs=self.y_obs,
+            y_pred=Y,
+            sigma=self.sigma,
+        )
+
+        lp = self.prior_fn(
+            theta=theta,
+            mu=self.mu,
+            sigma=self.sigma_prior,
+        )
+
+        return ll + lp

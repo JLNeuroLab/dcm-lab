@@ -251,15 +251,17 @@ def build_eeg_model_torch(cfg: dict, device=None) -> EEGForwardModel:
 
     params = JansenRitParametersTorch.with_defaults(l=l, m=m)
 
-    model_cfg = cfg.get("model", {})
-    if "P" in model_cfg:
-        params.P   = torch.tensor(model_cfg["P"],   dtype=torch.float32, device=device).reshape(l, m)
-    if "C_F" in model_cfg:
-        params.C_F = torch.tensor(model_cfg["C_F"], dtype=torch.float32, device=device).reshape(l, l)
-    if "C_B" in model_cfg:
-        params.C_B = torch.tensor(model_cfg["C_B"], dtype=torch.float32, device=device).reshape(l, l)
-    if "C_L" in model_cfg:
-        params.C_L = torch.tensor(model_cfg["C_L"], dtype=torch.float32, device=device).reshape(l, l)
+    # neuronal section (per-model, e.g. true_model/init_model) takes priority
+    # over the shared model section (used by forward-only configs)
+    conn_cfg = cfg.get("neuronal") or cfg.get("model", {})
+    if "P" in conn_cfg:
+        params.P   = torch.tensor(conn_cfg["P"],   dtype=torch.float32, device=device).reshape(l, m)
+    if "C_F" in conn_cfg:
+        params.C_F = torch.tensor(conn_cfg["C_F"], dtype=torch.float32, device=device).reshape(l, l)
+    if "C_B" in conn_cfg:
+        params.C_B = torch.tensor(conn_cfg["C_B"], dtype=torch.float32, device=device).reshape(l, l)
+    if "C_L" in conn_cfg:
+        params.C_L = torch.tensor(conn_cfg["C_L"], dtype=torch.float32, device=device).reshape(l, l)
 
     neuronal    = JansenRitNeuronal(params).to(device)
     observation = LeadFieldParametrization(l=l, n_sensors=n_sensors).to(device)
