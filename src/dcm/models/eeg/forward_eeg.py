@@ -20,6 +20,7 @@ class EEGForwardModel(nn.Module):
         if neuronal.l != observation.l:
             raise ValueError("neuronal and observation models must have the same l")
         
+        self.l = neuronal.l
         self.neuronal = neuronal
         self.observation = observation
 
