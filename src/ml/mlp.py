@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+Tensor = torch.Tensor
+
 class ResidualMLP(nn.Module):
 
     def __init__(self, l, m):
@@ -16,3 +18,18 @@ class ResidualMLP(nn.Module):
         x = torch.cat([z, u], dim=-1)
         return self.mlp(x)
     
+class EEGCouplingMLP(nn.Module):
+
+    def __init__(self, l: int, m: int):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(l + m, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, 2*l)
+        )
+
+    def forward(self, z: Tensor, u: Tensor) -> Tensor:
+        return self.net(torch.cat([z, u], dim=-1))

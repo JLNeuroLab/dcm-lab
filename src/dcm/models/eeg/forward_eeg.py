@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from dcm.models.eeg.neuronal_jansen_rit import JansenRitNeuronal
 from dcm.models.eeg.lead_field import LeadFieldParametrization
-from dcm.simulate.integrators import rk4_integrate_torch
+from dcm.simulate.integrators import odeint_euler
 
 Tensor = torch.Tensor
 InputFn = Callable[[float], Tensor]
@@ -51,7 +51,7 @@ class EEGForwardModel(nn.Module):
         def f(t: float, z: Tensor) -> Tensor:
             return self.dynamics(t, z, u(t))
 
-        S = rk4_integrate_torch(f, t_eval, z0)
+        S = odeint_euler(f, t_eval, z0)
         Y = torch.stack([self.observe(z) for z in S])
 
         return S, Y

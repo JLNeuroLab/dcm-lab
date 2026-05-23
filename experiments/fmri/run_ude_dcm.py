@@ -17,7 +17,7 @@ from experiments.lib.io import (
 from experiments.lib.utils import build_design_torch, build_model_torch
 from experiments.lib.diagnostics.diagnostics_residual_dcm import save_hybrid_diagnostics
 
-from hybrid.residual_dcm import ResidualDCM
+from ude.hybrid.residual_dcm import ResidualDCM
 from ml.mlp import ResidualMLP
 
 

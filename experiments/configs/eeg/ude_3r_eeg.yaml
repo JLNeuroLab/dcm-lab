@@ -1,4 +1,4 @@
-name: inversion_3r_eeg
+name: ude_3r_eeg
 
 # ── shared dimensions ────────────────────────────────────────
 model:
@@ -8,9 +8,9 @@ model:
 # ── time and integration ─────────────────────────────────────
 simulation:
   T: 1.0
-  dt: 0.002
+  dt: 0.001
 
-# ── inputs (same for true and init model) ────────────────────
+# ── inputs ───────────────────────────────────────────────────
 inputs:
   names: [u0, u1]
   u0:
@@ -44,41 +44,21 @@ true_model:
       - [0.0, 0.0]
       - [0.0, 1.0]
 
-# ── init model (inversion starting point) ────────────────────
-# deliberately wrong: weaker connections, no backward, wrong P
-init_model:
-  neuronal:
-    C_F:
-      - [0.0,  0.0,  0.0]
-      - [16.0, 0.0,  0.0]
-      - [0.0,  16.0, 0.0]
-    C_B:
-      - [0.0,  0.0,  0.0]
-      - [0.0,  0.0,  0.0]
-      - [0.0,  0.0,  0.0]
-    C_L:
-      - [0.0,  0.0,  0.0]
-      - [0.0,  0.0,  0.0]
-      - [0.0,  0.0,  0.0]
-    P:
-      - [0.5, 0.0]
-      - [0.0, 0.0]
-      - [0.0, 0.5]
-
-# ── priors ───────────────────────────────────────────────────
-priors:
-  sigma:
-    C_F: 20.0
-    C_B: 20.0
-    C_L: 1.0
-    P:   0.5
-
 # ── noise ────────────────────────────────────────────────────
 noise:
   std: 0.1
 
-# ── optimizer ────────────────────────────────────────────────
-optimizer:
-  method: lbfgs
-  max_iter: 200
-  lr: 1.0
+# ── P initialisation (closer to truth than ones) ─────────────
+init:
+  P:
+    - [0.5, 0.0]
+    - [0.0, 0.0]
+    - [0.0, 0.5]
+
+# ── UDE training ─────────────────────────────────────────────
+training:
+  adam_epochs: 200
+  lr: 5.0e-4
+  clip_grad_norm: 1.0
+  lbfgs_epochs: 100
+  lbfgs_max_iter: 20

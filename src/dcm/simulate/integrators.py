@@ -191,3 +191,27 @@ def rk4_integrate_torch(
         Z.append(z.clone())
 
     return torch.stack(Z, dim=0)
+
+
+def odeint_rk4(
+    f: Callable[[float, Tensor], Tensor],
+    t_eval,
+    z0: Tensor,
+    **kwargs,
+) -> Tensor:
+    """RK4 via torchdiffeq — accurate, use for MAP / forward simulation."""
+    from torchdiffeq import odeint
+    t = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
+    return odeint(f, z0, t, method="rk4", **kwargs)
+
+
+def odeint_euler(
+    f: Callable[[float, Tensor], Tensor],
+    t_eval,
+    z0: Tensor,
+    **kwargs,
+) -> Tensor:
+    """Euler via torchdiffeq — fast (1 call/step vs 4), use for UDE training."""
+    from torchdiffeq import odeint
+    t = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
+    return odeint(f, z0, t, method="euler", **kwargs)
