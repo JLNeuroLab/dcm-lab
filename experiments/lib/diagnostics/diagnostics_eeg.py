@@ -47,6 +47,27 @@ def save_eeg_diagnostics(
     plt.savefig(fig_dir / "matrices.png", dpi=200)
     plt.close()
 
+    # ── inputs ────────────────────────────────────────────────────
+    U = np.array(U)
+    n_inputs = U.shape[1] if U.ndim == 2 else 1
+    if U.ndim == 1:
+        U = U[:, None]
+
+    fig, axes = plt.subplots(n_inputs, 1, figsize=(12, 2 * n_inputs), sharex=True)
+    if n_inputs == 1:
+        axes = [axes]
+
+    for i, ax in enumerate(axes):
+        ax.plot(t, U[:, i], linewidth=1.5)
+        ax.set_ylabel(f"u{i}")
+        ax.grid(alpha=0.3)
+
+    axes[-1].set_xlabel("Time (s)")
+    plt.suptitle("Inputs")
+    plt.tight_layout()
+    plt.savefig(fig_dir / "inputs.png", dpi=200)
+    plt.close()
+
     # ── loss trace ────────────────────────────────────────────────
     plt.figure(figsize=(7, 3))
     plt.plot(trace)

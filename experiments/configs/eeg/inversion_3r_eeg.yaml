@@ -80,5 +80,5 @@ noise:
 # ── optimizer ────────────────────────────────────────────────
 optimizer:
   method: lbfgs
-  max_iter: 200
+  max_iter: 100
   lr: 1.0

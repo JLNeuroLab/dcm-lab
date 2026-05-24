@@ -118,6 +118,9 @@ class JansenRitNeuronal(nn.Module):
             - "trainable"          → all gradients enabled
             - "connections_frozen" → freeze C_F, C_B, C_L, P
             - "synaptic_frozen"    → freeze He, Hi, tau_e, tau_i
+            - "biophysical_frozen" → freeze all JR literature constants:
+                                     He, Hi, tau_e, tau_i, e0, r, v0
+                                     (leaves only C_F, C_B, C_L, P trainable)
         """
         if mode == "frozen":
             for p in self.parameters():
@@ -130,6 +133,10 @@ class JansenRitNeuronal(nn.Module):
                 p.requires_grad = False
         elif mode == "synaptic_frozen":
             for p in [self.log_He, self.log_Hi, self.log_tau_e, self.log_tau_i]:
+                p.requires_grad = False
+        elif mode == "biophysical_frozen":
+            for p in [self.log_He, self.log_Hi, self.log_tau_e, self.log_tau_i,
+                      self.log_e0, self.log_r, self.v0]:
                 p.requires_grad = False
         else:
             raise ValueError(f"Unknown mode: {mode}")

@@ -24,11 +24,11 @@ class EEGCouplingMLP(nn.Module):
         super().__init__()
 
         self.net = nn.Sequential(
-            nn.Linear(l + m, 64),
+            nn.Linear(l + m, 32),
             nn.Tanh(),
-            nn.Linear(64, 64),
+            nn.Linear(32, 32),
             nn.Tanh(),
-            nn.Linear(64, 2*l)
+            nn.Linear(32, 2*l)
         )
 
     def forward(self, z: Tensor, u: Tensor) -> Tensor:

@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from dcm.models.eeg.neuronal_jansen_rit import JansenRitNeuronal
 from dcm.models.eeg.lead_field import LeadFieldParametrization
-from dcm.simulate.integrators import odeint_euler
+from dcm.simulate.integrators import odeint_euler, odeint_rk4
 
 Tensor = torch.Tensor
 InputFn = Callable[[float], Tensor]
