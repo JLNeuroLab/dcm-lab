@@ -105,33 +105,32 @@ def main(config_path: str):
     # ── MLP warm-start ─────────────────────────────────────────────────
     ws_cfg = cfg.get("warmstart", {})
     if ws_cfg.get("enabled", False):
-        mlp_pretrain_steps = int(ws_cfg.get("mlp_pretrain_steps", 100))
-        print(f"MLP warm-start ({mlp_pretrain_steps} supervised steps)...")
+        print(f"MLP warm-start...")
 
-    with torch.no_grad():
-        X_true = S_true.reshape(-1, 9, l)          # (T, 9, l)
-        S0_true = ude_model.neuronal.sigmoid(X_true[:, 0, :])  # (T, l)
-        target_fwd = S0_true @ CF_true.T            # (T, l)
-        target_bwd = S0_true @ CB_true.T            # (T, l)
-        target = torch.cat([target_fwd, target_bwd], dim=-1)   # (T, 2*l)
+        with torch.no_grad():
+            X_true = S_true.reshape(-1, 9, l)          # (T, 9, l)
+            S0_true = ude_model.neuronal.sigmoid(X_true[:, 0, :])  # (T, l)
+            target_fwd = S0_true @ CF_true.T            # (T, l)
+            target_bwd = S0_true @ CB_true.T            # (T, l)
+            target = torch.cat([target_fwd, target_bwd], dim=-1)   # (T, 2*l)
 
-    u_zeros = torch.zeros(len(S0_true), m, device=device)
+        u_zeros = torch.zeros(len(S0_true), m, device=device)
 
-    with torch.no_grad():
-        # hidden representations from all layers except the last
-        x = torch.cat([S0_true, u_zeros], dim=-1)          # (T, l+m)
-        h = mlp.net[:-1](x)                                # (T, hidden_dim)
+        with torch.no_grad():
+            # hidden representations from all layers except the last
+            x = torch.cat([S0_true, u_zeros], dim=-1)          # (T, l+m)
+            h = mlp.net[:-1](x)                                # (T, hidden_dim)
 
-        # augment with ones for the bias term
-        h_aug = torch.cat([h, torch.ones(len(h), 1, device=device)], dim=-1)  # (T, hidden_dim+1)
+            # augment with ones for the bias term
+            h_aug = torch.cat([h, torch.ones(len(h), 1, device=device)], dim=-1)  # (T, hidden_dim+1)
 
-        # solve h_aug @ [W.T; b] = target  →  least squares
-        sol = torch.linalg.lstsq(h_aug, target).solution   # (hidden_dim+1, 2*l)
-        mlp.net[-1].weight.data.copy_(sol[:-1].T)           # (2*l, hidden_dim)
-        mlp.net[-1].bias.data.copy_(sol[-1])                # (2*l,)
+            # solve h_aug @ [W.T; b] = target  →  least squares
+            sol = torch.linalg.lstsq(h_aug, target).solution   # (hidden_dim+1, 2*l)
+            mlp.net[-1].weight.data.copy_(sol[:-1].T)           # (2*l, hidden_dim)
+            mlp.net[-1].bias.data.copy_(sol[-1])                # (2*l,)
 
-        pred_check = mlp(S0_true, u_zeros)
-        print(f"warm-start loss: {(pred_check - target).pow(2).mean():.4f}")
+            pred_check = mlp(S0_true, u_zeros)
+            print(f"warm-start loss: {(pred_check - target).pow(2).mean():.4f}")
 
     # ── training ─────────────────────────────────────────────────
     train_cfg = cfg["training"]

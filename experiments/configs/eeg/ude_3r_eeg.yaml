@@ -7,7 +7,7 @@ model:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 0.5
+  T: 1.0
   dt: 0.001
 
 # ── inputs ───────────────────────────────────────────────────
@@ -51,15 +51,15 @@ noise:
 # ── P initialisation ─────────────────────────────────────────
 init:
   P:
-    - [1.0, 0.0]
-    - [0.0, 0.0]
-    - [0.0, 1.0]
+    - [1.0, 1.0]
+    - [1.0, 1.0]
+    - [1.0, 1.0]
 
 # ── UDE training ─────────────────────────────────────────────
 training:
-  epochs: 300
+  epochs: 2000
   lr: 3.0e-4
   clip_grad_norm: 1.0
 
 warmstart:
-  enabled: False
+  enabled: True
