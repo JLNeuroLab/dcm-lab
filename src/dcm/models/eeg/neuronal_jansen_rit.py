@@ -83,12 +83,20 @@ class JansenRitParametersTorch:
     
 class JansenRitNeuronal(nn.Module):
 
-    def __init__(self, params: JansenRitParametersTorch):
+    def __init__(self, 
+                params: JansenRitParametersTorch,
+                coupling_nonlinearity: str = "linear",
+                gain_alpha: float = 1.0
+            ):
 
         super().__init__()
 
         self.l = params.l
         self.m = params.m
+        self.coupling_nonlinearity = coupling_nonlinearity
+        self.gain_alpha = gain_alpha
+        print(f"  [JansenRitNeuronal] coupling: {coupling_nonlinearity}"
+        + (f", alpha={gain_alpha}" if coupling_nonlinearity != "linear" else ""))
 
         # log-space for positive-only parameters
         self.log_He    = nn.Parameter(torch.log(params.He.clone()))
@@ -155,6 +163,12 @@ class JansenRitNeuronal(nn.Module):
         dw = (H / tau) * f - (2.0 / tau) * w - (1.0 / tau**2) * v
         return dv, dw
     
+    def coupling_fn(self, S0: Tensor, u_t: Tensor):
+        if self.coupling_nonlinearity == "input_modulated":
+            u_drive = (self.P @ u_t).norm()
+            return S0 * (1.0 + self.gain_alpha * u_drive)
+        return S0
+    
     # --- state equations ---
     def dynamics(self, t: float, z: Tensor, u_t: Tensor) -> Tensor:
         """
@@ -195,7 +209,7 @@ class JansenRitNeuronal(nn.Module):
         dx1, dx4 = self.synaptic_kernel(
             x1,
             x4,
-            (self.C_F + self.C_L) @ S0 + self.gamma_1 * S0 + inp,
+            (self.C_F + self.C_L) @ self.coupling_fn(S0, u_t) + self.gamma_1 * S0 + inp,
             He,
             tau_e
         )
@@ -203,7 +217,7 @@ class JansenRitNeuronal(nn.Module):
         dx2, dx5 = self.synaptic_kernel(
             x2,
             x5,
-            (self.C_B + self.C_L) @ S0 + self.gamma_2 * S1,
+            (self.C_B + self.C_L) @ self.coupling_fn(S0, u_t) + self.gamma_2 * S1,
             He,
             tau_e,
         )
@@ -221,7 +235,7 @@ class JansenRitNeuronal(nn.Module):
         dx7, dx8 = self.synaptic_kernel(
             x7, 
             x8,
-            (self.C_B + self.C_L) @ S0 + self.gamma_3 * S0,
+            (self.C_B + self.C_L) @ self.coupling_fn(S0, u_t) + self.gamma_3 * S0,
             He, 
             tau_e,
         )

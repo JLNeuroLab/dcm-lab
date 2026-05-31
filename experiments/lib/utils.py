@@ -263,7 +263,11 @@ def build_eeg_model_torch(cfg: dict, device=None) -> EEGForwardModel:
     if "C_L" in conn_cfg:
         params.C_L = torch.tensor(conn_cfg["C_L"], dtype=torch.float32, device=device).reshape(l, l)
 
-    neuronal    = JansenRitNeuronal(params).to(device)
+    nl = conn_cfg.get("coupling_nonlinearity", "linear")
+    alpha = float(conn_cfg.get("gain_alpha", 1.0))
+    neuronal    = JansenRitNeuronal(params,
+                                    coupling_nonlinearity=nl,
+                                    gain_alpha=alpha).to(device)
     observation = LeadFieldParametrization(l=l, n_sensors=n_sensors).to(device)
 
     return EEGForwardModel(neuronal, observation).to(device)

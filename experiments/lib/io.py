@@ -9,14 +9,14 @@ import numpy as np
 
 def load_yaml(path: str | Path) -> dict:
     path = Path(path)
-    with path.open("r") as f:
+    with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def save_yaml(cfg: dict, path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
 
 

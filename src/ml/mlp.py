@@ -20,15 +20,15 @@ class ResidualMLP(nn.Module):
     
 class EEGCouplingMLP(nn.Module):
 
-    def __init__(self, l: int, m: int):
+    def __init__(self, l: int, m: int, hidden_dim: int = 32):
         super().__init__()
 
         self.net = nn.Sequential(
-            nn.Linear(l + m, 32),
+            nn.Linear(l + m, hidden_dim),
             nn.Tanh(),
-            nn.Linear(32, 32),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.Tanh(),
-            nn.Linear(32, 2*l)
+            nn.Linear(hidden_dim, 2*l)
         )
 
     def forward(self, z: Tensor, u: Tensor) -> Tensor:

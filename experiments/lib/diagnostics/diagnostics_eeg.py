@@ -20,6 +20,10 @@ def save_eeg_diagnostics(
     CB_true, CB_est,
     CL_true, CL_est,
     P_true,  P_est,
+    Y_map=None,
+    dz_mlp=None,
+    dz_map_on_ude=None,
+    dz_map_on_map=None,
 ):
     run_dir = Path(run_dir)
     fig_dir = run_dir / "figures"
@@ -85,15 +89,18 @@ def save_eeg_diagnostics(
         axes = [axes]
 
     for i, ax in enumerate(axes):
-        ax.plot(t, Y_true[:, i], label="true",      linewidth=1.5)
+        ax.plot(t, Y_true[:, i], label="true",       linewidth=1.5)
         ax.plot(t, Y_obs[:, i],  label="obs+noise",  alpha=0.5, linewidth=0.8)
-        ax.plot(t, Y_est[:, i],  label="estimated",  linestyle="--", linewidth=1.5)
+        if Y_map is not None:
+            ax.plot(t, Y_map[:, i],  label="MAP init",    linestyle=":", linewidth=1.5, color="orange")
+        est_label = "UDE" if Y_map is not None else "estimated"
+        ax.plot(t, Y_est[:, i],  label=est_label,     linestyle="--", linewidth=1.5, color="green")
         ax.set_ylabel(f"sensor {i} (mV)")
         ax.legend(fontsize=8)
         ax.grid(alpha=0.3)
 
     axes[-1].set_xlabel("Time (s)")
-    plt.suptitle("EEG: true vs estimated")
+    plt.suptitle("EEG: true vs MAP init vs UDE" if Y_map is not None else "EEG: true vs estimated")
     plt.tight_layout()
     plt.savefig(fig_dir / "eeg_fit.png", dpi=200)
     plt.close()
@@ -124,6 +131,61 @@ def save_eeg_diagnostics(
     plt.savefig(fig_dir / "residual_autocorr.png", dpi=200)
     plt.close()
 
+    # ── UDE vs MAP contribution (difference in sensor space) ─────
+    if Y_map is not None:
+        diff = Y_est - Y_map
+
+        fig, axes = plt.subplots(n_sensors, 1, figsize=(12, 3 * n_sensors), sharex=True)
+        if n_sensors == 1:
+            axes = [axes]
+
+        for i, ax in enumerate(axes):
+            ax.plot(t, diff[:, i], linewidth=1.2)
+            ax.axhline(0, color="k", linewidth=0.6, linestyle="--")
+            ax.set_ylabel(f"Δ sensor {i}")
+            ax.grid(alpha=0.3)
+
+        axes[-1].set_xlabel("Time (s)")
+        plt.suptitle("Difference: UDE − MAP init")
+        plt.tight_layout()
+        plt.savefig(fig_dir / "difference_ude_vs_map.png", dpi=200)
+        plt.close()
+
+    # ── dynamics contribution ─────────────────────────────────────
+    mlp_contrib = None
+    if dz_mlp is not None and dz_map_on_ude is not None:
+        dz_mlp        = np.array(dz_mlp)
+        dz_map_on_ude = np.array(dz_map_on_ude)
+
+        mlp_contrib = float(np.mean(np.abs(dz_mlp)) / (np.mean(np.abs(dz_map_on_ude)) + 1e-8))
+
+        plt.figure(figsize=(8, 3))
+        plt.plot(np.mean(np.abs(dz_map_on_ude), axis=1), label="MAP coupling")
+        plt.plot(np.mean(np.abs(dz_mlp),         axis=1), label="MLP coupling")
+        plt.legend()
+        plt.title(f"Dynamics contribution (MLP/MAP ratio = {mlp_contrib:.3f})")
+        plt.xlabel("Time step")
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(fig_dir / "dynamics_contribution.png", dpi=200)
+        plt.close()
+
+    # ── dynamics comparison ───────────────────────────────────────
+    if dz_mlp is not None and dz_map_on_ude is not None and dz_map_on_map is not None:
+        dz_map_on_map = np.array(dz_map_on_map)
+
+        plt.figure(figsize=(8, 3))
+        plt.plot(np.mean(np.abs(dz_map_on_map), axis=1), label="MAP coupling (MAP traj)")
+        plt.plot(np.mean(np.abs(dz_map_on_ude), axis=1), label="MAP coupling (UDE traj)")
+        plt.plot(np.mean(np.abs(dz_mlp),         axis=1), label="MLP coupling (UDE traj)")
+        plt.legend()
+        plt.title("Dynamics: MAP trajectory vs UDE trajectory decomposition")
+        plt.xlabel("Time step")
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(fig_dir / "dynamics_comparison.png", dpi=200)
+        plt.close()
+
     # ── metrics ───────────────────────────────────────────────────
     theta_true = np.concatenate([CF_true.flatten(), CB_true.flatten(),
                                   CL_true.flatten(), P_true.flatten()])
@@ -135,12 +197,26 @@ def save_eeg_diagnostics(
     corrs       = [float(np.corrcoef(Y_obs[:, i], Y_est[:, i])[0, 1]) for i in range(n_sensors)]
 
     metrics = {
-        "param_error":       float(param_error),
-        "rmse":              rmse,
-        "mean_correlation":  float(np.mean(corrs)),
-        "per_sensor_corr":   corrs,
-        "final_loss":        float(trace[-1]) if len(trace) > 0 else None,
+        "param_error":      float(param_error),
+        "rmse":             rmse,
+        "mean_correlation": float(np.mean(corrs)),
+        "per_sensor_corr":  corrs,
+        "final_loss":       float(trace[-1]) if len(trace) > 0 else None,
     }
+
+    if Y_map is not None:
+        rmse_map  = float(np.sqrt(np.mean((Y_obs - Y_map) ** 2)))
+        corrs_map = [float(np.corrcoef(Y_obs[:, i], Y_map[:, i])[0, 1]) for i in range(n_sensors)]
+        ude_contribution = float(np.mean(np.abs(Y_est - Y_map)) / (np.mean(np.abs(Y_map)) + 1e-8))
+        metrics.update({
+            "rmse_map":                rmse_map,
+            "rmse_ude":                rmse,
+            "rmse_improvement":        rmse_map - rmse,
+            "mean_correlation_map":    float(np.mean(corrs_map)),
+            "per_sensor_corr_map":     corrs_map,
+            "ude_contribution_ratio":  ude_contribution,
+            "mlp_map_coupling_ratio":  mlp_contrib,
+        })
 
     save_json(metrics, run_dir / "metrics.json")
     print("✔ EEG diagnostics saved in:", run_dir)
