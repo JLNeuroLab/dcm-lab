@@ -10,6 +10,7 @@ model:
 # ── MLP architecture ─────────────────────────────────────────
 mlp:
   hidden_dim: 256
+  u_scale: 220.0
 
 # ── time and integration ─────────────────────────────────────
 simulation:
@@ -37,7 +38,7 @@ inputs:
 true_model:
   neuronal:
     coupling_nonlinearity: input_modulated
-    gain_alpha: 0.03
+    gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
@@ -69,7 +70,7 @@ true_model:
 
 # ── noise ────────────────────────────────────────────────────
 noise:
-  std: 0.1
+  std: 0.01
 
 # ── P initialisation ─────────────────────────────────────────
 init:
@@ -89,7 +90,7 @@ training:
   freeze_P: True
 
 warmstart:
-  enabled: False
+  enabled: True
 
 # ── MAP pre-estimation ────────────────────────────────────────
 map_init:

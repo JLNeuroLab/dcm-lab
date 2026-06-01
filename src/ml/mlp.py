@@ -20,9 +20,9 @@ class ResidualMLP(nn.Module):
     
 class EEGCouplingMLP(nn.Module):
 
-    def __init__(self, l: int, m: int, hidden_dim: int = 32):
+    def __init__(self, l: int, m: int, hidden_dim: int = 32, u_scale: float = 1.0):
         super().__init__()
-
+        self.register_buffer("u_scale", torch.tensor(u_scale, dtype=torch.float32))
         self.net = nn.Sequential(
             nn.Linear(l + m, hidden_dim),
             nn.Tanh(),
@@ -32,4 +32,4 @@ class EEGCouplingMLP(nn.Module):
         )
 
     def forward(self, z: Tensor, u: Tensor) -> Tensor:
-        return self.net(torch.cat([z, u], dim=-1))
+        return self.net(torch.cat([z, u / self.u_scale], dim=-1))

@@ -5,6 +5,10 @@ model:
   l: 3
   m: 2
 
+# ── MLP architecture ─────────────────────────────────────────
+mlp:
+  u_scale: 220.0
+
 # ── time and integration ─────────────────────────────────────
 simulation:
   T: 1.0
@@ -17,7 +21,7 @@ inputs:
     type: boxcar
     onsets: [0.0]
     durations: [1.0]
-    amplitudes: 220.0
+    amplitudes: 70.0
   u1:
     type: boxcar
     onsets: [0.20, 0.50, 0.75]
@@ -28,7 +32,7 @@ inputs:
 true_model:
   neuronal:
     coupling_nonlinearity: input_modulated
-    gain_alpha: 0.03
+    gain_alpha: 0.5
     C_F:
       - [0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0]
@@ -67,8 +71,8 @@ training:
 
 warmstart:
   enabled: True
-  steps: 500
-  lr: 1.0e-3
+  steps: 7000
+  lr: 1.0e-2
 
 # ── MAP pre-estimation (runs before UDE, optional) ───────────
 map_init:

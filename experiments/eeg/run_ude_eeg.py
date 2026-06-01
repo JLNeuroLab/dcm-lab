@@ -160,7 +160,9 @@ def main(config_path: str):
     neuronal   = JansenRitNeuronal(params).to(device)
     observer   = LeadFieldParametrization(l=l).to(device)
     hidden_dim = int(cfg.get("mlp", {}).get("hidden_dim", 32))
-    mlp        = EEGCouplingMLP(l=l, m=m, hidden_dim=hidden_dim).to(device)
+    u_scale    = float(cfg.get("mlp", {}).get("u_scale", 1.0))
+    mlp        = EEGCouplingMLP(l=l, m=m, hidden_dim=hidden_dim, u_scale=u_scale).to(device)
+    print(f"  MLP: hidden_dim={hidden_dim}, u_scale={u_scale}")
 
     ude_model = EEGCouplingUDE(
         neuronal=neuronal,
@@ -207,17 +209,17 @@ def main(config_path: str):
             target = torch.cat([coupling_S0 @ CF_ws.T, coupling_S0 @ CB_ws.T], dim=-1)  # (T, 2l)
 
         ws_steps = int(ws_cfg.get("steps", 500))
-    ws_lr    = float(ws_cfg.get("lr", 1e-3))
-    ws_opt   = torch.optim.Adam(mlp.parameters(), lr=ws_lr)
-    for step in range(ws_steps):
-        ws_pred = mlp(S0_ws, u_vals)
-        ws_loss = (ws_pred - target).pow(2).mean()
-        ws_opt.zero_grad()
-        ws_loss.backward()
-        ws_opt.step()
-        if step % 100 == 0:
-            print(f"  [ws {step:4d}] loss={ws_loss.item():.6f}")
-    print(f"  warm-start done — final loss: {ws_loss.item():.6f}")
+        ws_lr    = float(ws_cfg.get("lr", 1e-3))
+        ws_opt   = torch.optim.Adam(mlp.parameters(), lr=ws_lr)
+        for step in range(ws_steps):
+            ws_pred = mlp(S0_ws, u_vals)
+            ws_loss = (ws_pred - target).pow(2).mean()
+            ws_opt.zero_grad()
+            ws_loss.backward()
+            ws_opt.step()
+            if step % 100 == 0:
+                print(f"  [ws {step:4d}] loss={ws_loss.item():.6f}")
+        print(f"  warm-start done — final loss: {ws_loss.item():.6f}")
 
     # ── training ─────────────────────────────────────────────────
     train_cfg     = cfg["training"]
