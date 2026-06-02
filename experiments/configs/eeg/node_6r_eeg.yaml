@@ -1,0 +1,92 @@
+name: node_6r_eeg
+
+device: cpu
+adjoint: True   # use adjoint method for gradients (better quality, same cost)
+
+# ── shared dimensions ────────────────────────────────────────
+model:
+  l: 6
+  m: 2
+
+# ── MLP / NODE architecture ───────────────────────────────────
+mlp:
+  hidden_dim: 256
+  u_scale: 220.0   # max input amplitude — prevents Tanh saturation
+  z_scale: 1.0     # set to 1.0 to trigger auto-scaling from true trajectory
+
+# ── time and integration ─────────────────────────────────────
+simulation:
+  T: 1.0
+  dt: 0.005
+
+# ── inputs ───────────────────────────────────────────────────
+inputs:
+  names: [u0, u1]
+  u0:
+    type: boxcar
+    onsets: [0.0]
+    durations: [2.0]
+    amplitudes: 220.0
+  u1:
+    type: boxcar
+    onsets: [0.30, 0.70, 1.20, 1.60]
+    durations: [0.05, 0.05, 0.05, 0.05]
+    amplitudes: 60.0
+
+# ── true model (6-region linear chain) ───────────────────────
+# Forward:  0->1->2->3->4->5  (C_F[i+1, i] = 32)
+# Backward: 5->4->3->2->1->0  (C_B[i-1, i] = 16)
+# Input:    region 0 <- u0, region 3 <- u1
+true_model:
+  neuronal:
+    coupling_nonlinearity: input_modulated
+    gain_alpha: 0.01
+    C_F:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  32.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  32.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  32.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  32.0, 0.0]
+    C_B:
+      - [0.0,  16.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  16.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  16.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  16.0, 0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  16.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    C_L:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    P:
+      - [1.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 1.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+
+# ── noise ────────────────────────────────────────────────────
+noise:
+  std: 0.1
+
+# ── warm-start ───────────────────────────────────────────────
+warmstart:
+  enabled: True
+  steps: 1000
+  lr: 1.0e-3
+
+# ── NODE training ─────────────────────────────────────────────
+training:
+  epochs: 1500
+  lr: 1.0e-4
+  clip_grad_norm: 1.0
+  normalized_loss: True
+  lr_schedule:
+    factor: 0.5
+    patience: 50
+    min_lr: 1.0e-6

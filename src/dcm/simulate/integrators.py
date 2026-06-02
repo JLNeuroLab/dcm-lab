@@ -215,3 +215,21 @@ def odeint_euler(
     from torchdiffeq import odeint
     t = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
     return odeint(f, z0, t, method="euler", **kwargs)
+
+
+def odeint_adjoint(
+    f: Callable[[float, Tensor], Tensor],
+    t_eval,
+    z0: Tensor,
+    method: str = "euler",
+    **kwargs,
+) -> Tensor:
+    """Adjoint-method ODE solver via torchdiffeq.
+
+    Gradients are computed by solving the adjoint ODE backwards instead of
+    backpropagating through all forward steps.  Gradient quality is independent
+    of trajectory length — use this instead of odeint_euler for NODE training.
+    """
+    from torchdiffeq import odeint_adjoint as _odeint_adjoint
+    t = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
+    return _odeint_adjoint(f, z0, t, method=method, **kwargs)
