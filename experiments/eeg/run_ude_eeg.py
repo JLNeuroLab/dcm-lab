@@ -337,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/eeg/ude_3r_eeg.yaml",
+        default="experiments/configs/eeg/ude_6r_eeg_cuda.yaml",
     )
     args = parser.parse_args()
     main(args.config)

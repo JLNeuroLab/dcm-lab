@@ -34,6 +34,49 @@ def extract_model_cfg(cfg, key):
         "neuronal": cfg[key]["neuronal"],
     }
 
+def _make_optimizer(params, opt_cfg: dict):
+    method = opt_cfg.get("method", "adam").lower()
+    if method == "lbfgs":
+        return torch.optim.LBFGS(
+            params,
+            lr       = float(opt_cfg.get("lr",       1.0)),
+            max_iter = int(opt_cfg.get("max_iter",   20)),
+            line_search_fn='strong_wolfe'
+        )
+    return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
+
+
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0):
+    if is_lbfgs:
+        def closure():
+            optimizer.zero_grad()
+            _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+            loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+            if l1_lambda > 0.0:
+                loss = loss + l1_lambda * (
+                    ude.neuronal.C_F.abs().mean() +
+                    ude.neuronal.C_B.abs().mean()
+                )
+            loss.backward()
+            return loss
+        return optimizer.step(closure).item()
+    else:
+        _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+        loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
+        optimizer.step()
+        return loss.item()
+
+def effective_connectivity(model: EEGCouplingUDE, S0: torch.Tensor, u_t: torch.Tensor):
+    """Linearise MLP at (S0, u_t) → effective C_F (first l rows) and C_B (last l rows)."""
+    J = torch.autograd.functional.jacobian(
+        lambda s: model.mlp(s, u_t), S0
+    )  # (2*l, l)
+    l = model.l
+    return J[:l].detach(), J[l:].detach()
+
 def _build_ude(cfg, P_true, seed, device):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -62,7 +105,7 @@ def _build_ude(cfg, P_true, seed, device):
     return ude_model
 
 # ------ main ---------
-def main(config_path: str):
+def main(config_path: str, best_seed_override: int | None = None):
     
     t0 = time.perf_counter()
 
@@ -100,112 +143,128 @@ def main(config_path: str):
 
     # ----------------- multi-start phase -------------------
     ms_cfg = cfg["multistart"]
-    results = []
 
     sensor_var = Y_obs.var(dim=0, keepdim=True).detach() + 1e-8
     norm_loss  = ms_cfg.get("normalized_loss", False)
     if norm_loss:
         print("  Using sensor-normalized loss")
-        
-    n_restarts = int(ms_cfg["n_restarts"])
-    for seed in range(n_restarts):
-        print(f"\n--- Restart {seed+1}/{n_restarts} (seed={seed}) ---")
-        ude = _build_ude(cfg, P_true, seed, device)
-        optimizer = torch.optim.Adam(ude.parameters(), lr=ms_cfg["lr"])
-        trace = []
 
-        for epoch in range(ms_cfg["epochs_per_restart"]):
-            _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
-            loss = ((Y_obs - Y_pred)**2 / sensor_var).mean()
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(ude.parameters(), ms_cfg["clip_grad_norm"])
-            optimizer.step()
-            trace.append(loss.item())
-            if epoch % 50 == 0:
-                print(f"  [{epoch:4d}] loss={loss.item():.6f}")
+    if best_seed_override is not None:
+        print(f"\nSkipping multi-start — using seed={best_seed_override} directly.")
+        best = {"seed": best_seed_override, "final_loss": float("nan"), "rmse": float("nan")}
+    else:
+        results = []
+        ms_opt_cfg = ms_cfg.get("optimizer", {"method": "adam", "lr": ms_cfg.get("lr", 1e-3)})
+        ms_clip    = float(ms_cfg.get("clip_grad_norm", 1.0))
+        is_lbfgs   = ms_opt_cfg.get("method", "adam").lower() == "lbfgs"
+        print(f"  Optimizer: {ms_opt_cfg.get('method', 'adam').upper()}")
 
-        with torch.no_grad():
-            _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
-        rmse = ((Y_pred - Y_true) ** 2).mean().sqrt().item()
+        n_restarts = int(ms_cfg["n_restarts"])
+        for seed in range(n_restarts):
+            print(f"\n--- Restart {seed+1}/{n_restarts} (seed={seed}) ---")
+            ude       = _build_ude(cfg, P_true, seed, device)
+            optimizer = _make_optimizer(ude.parameters(), ms_opt_cfg)
+            trace     = []
 
-        results.append({"seed": seed, "final_loss": trace[-1],
-                        "min_loss": min(trace), "rmse": rmse})
-        print(f"  => final={trace[-1]:.4f}  min={min(trace):.4f}  rmse={rmse:.4f}")
+            for epoch in range(ms_cfg["epochs_per_restart"]):
+                loss_val = _train_step(ude, optimizer, Y_obs, t_eval, u_fn,
+                                       sensor_var, ms_clip, is_lbfgs)
+                if not np.isfinite(loss_val):
+                    print(f"  [{epoch:4d}] NaN/Inf — aborting restart")
+                    break
+                trace.append(loss_val)
+                if epoch % 50 == 0:
+                    print(f"  [{epoch:4d}] loss={loss_val:.6f}")
 
-    # ── summary ───────────────────────────────────────────────────
-    best = min(results, key=lambda r: r["final_loss"])
-    print(f"\nBest: seed={best['seed']}, final_loss={best['final_loss']:.4f}, rmse={best['rmse']:.4f}")
+            with torch.no_grad():
+                _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+            rmse = ((Y_pred - Y_true) ** 2).mean().sqrt().item()
 
-    save_npz(
-        run_dir / "multistart_summary.npz",
-        seeds        = np.array([r["seed"]       for r in results]),
-        final_losses = np.array([r["final_loss"]  for r in results]),
-        min_losses   = np.array([r["min_loss"]    for r in results]),
-        rmses        = np.array([r["rmse"]        for r in results]),
-        best_seed    = np.array(best["seed"]),
-    )
+            results.append({"seed": seed, "final_loss": trace[-1] if trace else float("nan"),
+                            "min_loss": min(trace) if trace else float("nan"), "rmse": rmse})
+            print(f"  => final={results[-1]['final_loss']:.4f}  min={results[-1]['min_loss']:.4f}  rmse={rmse:.4f}")
 
-    summary_json = {
-        "best_seed": int(best["seed"]),
-        "restarts": [
-            {
-                "seed":       int(r["seed"]),
-                "final_loss": round(float(r["final_loss"]), 6),
-                "min_loss":   round(float(r["min_loss"]),   6),
-                "rmse":       round(float(r["rmse"]),       6),
-            }
-            for r in sorted(results, key=lambda r: r["final_loss"])
-        ],
-    }
-    with open(run_dir / "multistart_summary.json", "w") as f:
-        json.dump(summary_json, f, indent=2)
+        best = min(results, key=lambda r: r["final_loss"])
+        print(f"\nBest: seed={best['seed']}, final_loss={best['final_loss']:.4f}, rmse={best['rmse']:.4f}")
+
+    if best_seed_override is None:
+        save_npz(
+            run_dir / "multistart_summary.npz",
+            seeds        = np.array([r["seed"]       for r in results]),
+            final_losses = np.array([r["final_loss"]  for r in results]),
+            min_losses   = np.array([r["min_loss"]    for r in results]),
+            rmses        = np.array([r["rmse"]        for r in results]),
+            best_seed    = np.array(best["seed"]),
+        )
+        summary_json = {
+            "best_seed": int(best["seed"]),
+            "restarts": [
+                {
+                    "seed":       int(r["seed"]),
+                    "final_loss": round(float(r["final_loss"]), 6),
+                    "min_loss":   round(float(r["min_loss"]),   6),
+                    "rmse":       round(float(r["rmse"]),       6),
+                }
+                for r in sorted(results, key=lambda r: r["final_loss"])
+            ],
+        }
+        with open(run_dir / "multistart_summary.json", "w") as f:
+            json.dump(summary_json, f, indent=2)
     _t("multi-start", t0); t0 = time.perf_counter()
 
     # ── full training on best seed ────────────────────────────────
     train_cfg   = cfg["training"]
     full_epochs = int(train_cfg["epochs"])
-    full_lr     = float(train_cfg["lr"])
     full_clip   = float(train_cfg.get("clip_grad_norm", 1.0))
 
-    print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs)...")
+    ft_opt_cfg   = train_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
+    l1_lambda = float(train_cfg.get("l1_lambda", 0.0))
+    ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
+    print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
     ude_best  = _build_ude(cfg, P_true, best["seed"], device)
-    optimizer = torch.optim.Adam(ude_best.parameters(), lr=full_lr)
+    optimizer = _make_optimizer(ude_best.parameters(), ft_opt_cfg)
 
     sched_cfg = train_cfg.get("lr_schedule", {})
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        factor   = float(sched_cfg.get("factor",   0.5)),
-        patience = int(sched_cfg.get("patience",   50)),
-        min_lr   = float(sched_cfg.get("min_lr",   1e-6)),
-    )
+    scheduler = None
+    if not ft_is_lbfgs:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            factor   = float(sched_cfg.get("factor",   0.5)),
+            patience = int(sched_cfg.get("patience",   50)),
+            min_lr   = float(sched_cfg.get("min_lr",   1e-6)),
+        )
 
     full_trace    = []
     full_lr_trace = []
 
     for epoch in range(full_epochs):
-        _, Y_pred = ude_best.simulate(u=u_fn, t_eval=t_eval)
-        loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(ude_best.parameters(), full_clip)
-        optimizer.step()
-        scheduler.step(loss.item())
+        loss_val = _train_step(ude_best, optimizer, Y_obs, t_eval, u_fn,
+                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda)
+        if not np.isfinite(loss_val):
+            print(f"  [{epoch:4d}] NaN/Inf — aborting full training")
+            break
+        if scheduler is not None:
+            scheduler.step(loss_val)
 
         current_lr = optimizer.param_groups[0]["lr"]
-        full_trace.append(loss.item())
+        full_trace.append(loss_val)
         full_lr_trace.append(current_lr)
         if epoch % 100 == 0:
-            print(f"  [{epoch:4d}] loss={loss.item():.6f}  lr={current_lr:.2e}")
+            print(f"  [{epoch:4d}] loss={loss_val:.6f}  lr={current_lr:.2e}")
 
     _t("full training", t0); t0 = time.perf_counter()
 
     # ── final simulation ──────────────────────────────────────────
     with torch.no_grad():
-        _, Y_final = ude_best.simulate(u=u_fn, t_eval=t_eval)
+        S_final, Y_final = ude_best.simulate(u=u_fn, t_eval=t_eval)
 
-    CF_est = ude_best.neuronal.C_F.detach()
-    CB_est = ude_best.neuronal.C_B.detach()
+    X_mean  = S_final.mean(0).reshape(9, l)
+    S0_mean = ude_best.neuronal.sigmoid(X_mean[0])
+    u_mean  = torch.zeros(m, device=device)
+    J = torch.autograd.functional.jacobian(
+            lambda s: ude_best.mlp(s, u_mean), S0_mean)   # (2l, l)
+    CF_est = J[:l].detach()
+    CB_est = J[l:].detach()
     P_est  = ude_best.neuronal.P.detach()
     zeros_ll = np.zeros((l, l))
 
@@ -254,5 +313,11 @@ if __name__ == "__main__":
         type=str,
         default="experiments/configs/eeg/multistart_ude_6r_linear.yaml",
     )
+    parser.add_argument(
+        "--best-seed",
+        type=int,
+        default=None,
+        help="Skip multi-start and run full training on this seed directly.",
+    )
     args = parser.parse_args()
-    main(args.config)
+    main(args.config, best_seed_override=args.best_seed)

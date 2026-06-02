@@ -14,7 +14,7 @@ mlp:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 1.0
+  T: 0.5
   dt: 0.001
 
 # ── inputs ───────────────────────────────────────────────────
@@ -37,7 +37,7 @@ inputs:
 # Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: input_modulated
+    coupling_nonlinearity: linear
     gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
@@ -83,14 +83,14 @@ init:
       - [0.0, 0.0]
 # ── UDE training ─────────────────────────────────────────────
 training:
-  epochs: 200
+  epochs: 500
   lr: 1.0e-3
   clip_grad_norm: 1.0
   normalized_loss: True
   freeze_P: True
 
 warmstart:
-  enabled: True
+  enabled: False
 
 # ── MAP pre-estimation ────────────────────────────────────────
 map_init:
@@ -134,5 +134,5 @@ map_init:
       P:   0.5
   optimizer:
     method: lbfgs
-    max_iter: 200
+    max_iter: 100
     lr: 1.0

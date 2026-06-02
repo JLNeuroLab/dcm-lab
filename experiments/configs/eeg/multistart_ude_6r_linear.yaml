@@ -14,7 +14,7 @@ mlp:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 1.0
+  T: 0.5
   dt: 0.001
 
 # ── inputs ───────────────────────────────────────────────────
@@ -71,21 +71,28 @@ noise:
 
 # ── multi-start ──────────────────────────────────────────────
 multistart:
-  n_restarts: 20
-  epochs_per_restart: 300       # short run to filter good inits
-  lr: 1.0e-3
+  n_restarts: 10
+  epochs_per_restart: 30
+  optimizer:
+    method: lbfgs   # lbfgs or adam
+    lr: 1.0
+    max_iter: 5
   clip_grad_norm: 1.0
   normalized_loss: True
   init:
-    C_F_scale: 64.0             # C_F entries ~ Uniform(0, C_F_scale)
-    C_B_scale: 32.0             # C_B entries ~ Uniform(0, C_B_scale)
+    C_F_scale: 64.0
+    C_B_scale: 32.0
 
 # ── full training on best restart ────────────────────────────
 training:
-  epochs: 1000
-  lr: 1.0e-4
+  epochs: 5
+  l1_lambda: 1.0e-3
   clip_grad_norm: 1.0
   normalized_loss: True
+  optimizer:
+    method: lbfgs    # lbfgs or adam
+    lr: 1.0
+    max_iter: 10
   lr_schedule:
     factor: 0.5
     patience: 50
