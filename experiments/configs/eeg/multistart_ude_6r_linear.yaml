@@ -1,0 +1,92 @@
+name: multistart_ude_6r_linear
+
+device: cpu
+
+# ── shared dimensions ────────────────────────────────────────
+model:
+  l: 6
+  m: 2
+
+# ── MLP architecture ─────────────────────────────────────────
+mlp:
+  hidden_dim: 32
+  u_scale: 220.0
+
+# ── time and integration ─────────────────────────────────────
+simulation:
+  T: 1.0
+  dt: 0.001
+
+# ── inputs ───────────────────────────────────────────────────
+inputs:
+  names: [u0, u1]
+  u0:
+    type: boxcar
+    onsets: [0.0]
+    durations: [2.0]
+    amplitudes: 220.0
+  u1:
+    type: boxcar
+    onsets: [0.30, 0.70, 1.20, 1.60]
+    durations: [0.05, 0.05, 0.05, 0.05]
+    amplitudes: 60.0
+
+# ── true model (6-region linear chain) ───────────────────────
+true_model:
+  neuronal:
+    coupling_nonlinearity: linear
+    gain_alpha: 0.01
+    C_F:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  32.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  32.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  32.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  32.0, 0.0]
+    C_B:
+      - [0.0,  16.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  16.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  16.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  16.0, 0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  16.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    C_L:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    P:
+      - [1.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 1.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+
+# ── noise ────────────────────────────────────────────────────
+noise:
+  std: 0.1
+
+# ── multi-start ──────────────────────────────────────────────
+multistart:
+  n_restarts: 20
+  epochs_per_restart: 300       # short run to filter good inits
+  lr: 1.0e-3
+  clip_grad_norm: 1.0
+  normalized_loss: True
+  init:
+    C_F_scale: 64.0             # C_F entries ~ Uniform(0, C_F_scale)
+    C_B_scale: 32.0             # C_B entries ~ Uniform(0, C_B_scale)
+
+# ── full training on best restart ────────────────────────────
+training:
+  epochs: 1000
+  lr: 1.0e-4
+  clip_grad_norm: 1.0
+  normalized_loss: True
+  lr_schedule:
+    factor: 0.5
+    patience: 50
+    min_lr: 1.0e-6
