@@ -16,3 +16,11 @@ dist/
 results/
 # Saved models 
 saved_models/
+
+# hpc environment
+*.sh
+*.sbatch
+*.md
+Miniconda3*
+miniconda
+slurm*
