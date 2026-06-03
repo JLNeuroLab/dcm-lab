@@ -1,7 +1,7 @@
 name: node_6r_eeg
 
 device: cpu
-adjoint: True   # use adjoint method for gradients (better quality, same cost)
+adjoint: False   # use adjoint method for gradients (better quality, same cost)
 
 # ── shared dimensions ────────────────────────────────────────
 model:
@@ -10,7 +10,7 @@ model:
 
 # ── MLP / NODE architecture ───────────────────────────────────
 mlp:
-  hidden_dim: 256
+  hidden_dim: 1024
   u_scale: 220.0   # max input amplitude — prevents Tanh saturation
   z_scale: 1.0     # set to 1.0 to trigger auto-scaling from true trajectory
 
@@ -39,7 +39,7 @@ inputs:
 # Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: input_modulated
+    coupling_nonlinearity: linear
     gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
@@ -76,16 +76,19 @@ noise:
 
 # ── warm-start ───────────────────────────────────────────────
 warmstart:
-  enabled: True
+  enabled: False
   steps: 1000
   lr: 1.0e-3
 
 # ── NODE training ─────────────────────────────────────────────
 training:
-  epochs: 1500
-  lr: 1.0e-4
+  epochs: 60
   clip_grad_norm: 1.0
   normalized_loss: True
+  optimizer:
+    method: lbfgs    # lbfgs or adam
+    lr: 1.0
+    max_iter: 10
   lr_schedule:
     factor: 0.5
     patience: 50

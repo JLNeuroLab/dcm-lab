@@ -12,9 +12,9 @@ dist/
 .ipynb_checkpoints/
 .DS_Store
 .vscode/
-
+*.sbatch
 create_venv.sh
-job_neural_network.sbatch
+
 # Experiment outputs
 results/
 # Saved models 
