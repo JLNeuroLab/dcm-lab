@@ -1,0 +1,15 @@
+pyyaml
+numpy==1.26
+scipy==1.11
+pandas
+matplotlib
+tqdm
+joblib
+black
+ruff
+pytest
+# GPU version — change cu124 to cpu if no GPU
+torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+jax[cpu]==0.4.26
+numpyro==0.13.2
+torchdiffeq==0.2.5
