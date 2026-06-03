@@ -18,6 +18,7 @@ dependencies:
   - pytest
 
   - pip:
+        # GPU version — change cu124 to cpu if no GPU
       - torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
       - jax[cpu]==0.4.26
       - numpyro==0.13.2
