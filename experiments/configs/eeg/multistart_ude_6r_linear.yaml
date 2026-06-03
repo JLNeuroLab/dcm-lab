@@ -34,7 +34,7 @@ inputs:
 # ── true model (6-region linear chain) ───────────────────────
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
+    coupling_nonlinearity: input_modulated
     gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
@@ -72,10 +72,10 @@ noise:
 # ── multi-start ──────────────────────────────────────────────
 multistart:
   n_restarts: 10
-  epochs_per_restart: 30
+  epochs_per_restart: 100
   optimizer:
-    method: lbfgs   # lbfgs or adam
-    lr: 1.0
+    method: adam   # lbfgs or adam
+    lr: 1.0e-3
     max_iter: 5
   clip_grad_norm: 1.0
   normalized_loss: True
