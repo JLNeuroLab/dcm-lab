@@ -9,7 +9,7 @@ model:
 
 # ── MLP architecture ─────────────────────────────────────────
 mlp:
-  hidden_dim: 256
+  hidden_dim: 32
   u_scale: 220.0
 
 # ── time and integration ─────────────────────────────────────
@@ -83,18 +83,27 @@ init:
       - [0.0, 0.0]
 # ── UDE training ─────────────────────────────────────────────
 training:
-  epochs: 500
-  lr: 1.0e-3
+  epochs: 10
+  freeze_P: False
+  l1_lambda: 0.0
+  jac_lambda: 0.0
   clip_grad_norm: 1.0
   normalized_loss: True
-  freeze_P: True
+  optimizer:
+    method: lbfgs    # lbfgs or adam
+    lr: 1.0
+    max_iter: 10
+  lr_schedule:
+    factor: 0.5
+    patience: 50
+    min_lr: 1.0e-6
 
 warmstart:
   enabled: False
 
 # ── MAP pre-estimation ────────────────────────────────────────
 map_init:
-  enabled: False
+  enabled: True
   freeze_P_after_map: True
   init_model:
     neuronal:

@@ -38,15 +38,56 @@ def extract_model_cfg(cfg, key):
         "neuronal": cfg[key]["neuronal"],
     }
 
+def _make_optimizer(params, opt_cfg: dict):
+    method = opt_cfg.get("method", "adam").lower()
+    if method == "lbfgs":
+        return torch.optim.LBFGS(
+            params,
+            lr       = float(opt_cfg.get("lr",       1.0)),
+            max_iter = int(opt_cfg.get("max_iter",   20)),
+            line_search_fn='strong_wolfe'
+        )
+    return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
 
-def effective_connectivity(model: EEGCouplingUDE, S0: torch.Tensor, u_t: torch.Tensor):
-    """Linearise MLP at (S0, u_t) → effective C_F (first l rows) and C_B (last l rows)."""
+def _jac_penalty(ude, jac_lambda, device):
+    """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
+    S0_fixed = torch.full((ude.l,), 0.5, device=device)
+    u_fixed  = torch.zeros(ude.m, device=device)
     J = torch.autograd.functional.jacobian(
-        lambda s: model.mlp(s, u_t), S0
-    )  # (2*l, l)
-    l = model.l
-    return J[:l].detach(), J[l:].detach()
+            lambda s: ude.mlp(s, u_fixed), S0_fixed)
+    return jac_lambda * J.abs().mean()
 
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
+    if is_lbfgs:
+        def closure():
+            optimizer.zero_grad()
+            _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+            loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+            if l1_lambda > 0.0:
+                loss = loss + l1_lambda * (
+                    ude.neuronal.C_F.abs().mean() +
+                    ude.neuronal.C_B.abs().mean()
+                )
+            if jac_lambda > 0.0:
+                loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
+            loss.backward()
+            return loss
+        return optimizer.step(closure).item()
+    else:
+        _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+        loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        if l1_lambda > 0.0:
+            loss = loss + l1_lambda * (
+                ude.neuronal.C_F.abs().mean() +
+                ude.neuronal.C_B.abs().mean()
+            )
+        if jac_lambda > 0.0:
+            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
+        optimizer.step()
+        return loss.item()
 
 # ============================================================
 # MAIN
@@ -226,33 +267,34 @@ def main(config_path: str):
     if train_cfg.get("freeze_P", False):
         ude_model.neuronal.P.requires_grad = False
         print("  P frozen at initial value — only MLP trains")
-    optimizer     = torch.optim.Adam(ude_model.parameters(), lr=float(train_cfg["lr"]))
+    ft_opt_cfg = train_cfg.get("optimizer", {"method": "adam", "lr": train_cfg.get("lr", 1e-3)})
+    optimizer     = _make_optimizer(ude_model.parameters(), ft_opt_cfg)
+    is_lbfgs = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     clip_norm     = float(train_cfg.get("clip_grad_norm", 1.0))
     epochs        = int(train_cfg["epochs"])
-    norm_loss     = train_cfg.get("normalized_loss", False)
+    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
+    l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
 
+    # normalized loss flag
+    norm_loss     = train_cfg.get("normalized_loss", False)
     if norm_loss:
         sensor_var = Y_obs.var(dim=0, keepdim=True).detach() + 1e-8
         print("  Using sensor-normalized loss")
+    else:
+        sensor_var = torch.ones(1, device=device)
 
     trace = []
     print(f"Training UDE ({epochs} epochs)...")
 
     for epoch in range(epochs):
-        _, Y_pred = ude_model.simulate(u=u_fn, t_eval=t_eval)
-        if norm_loss:
-            loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
-        else:
-            loss = ((Y_pred - Y_obs) ** 2).mean()
-
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(ude_model.parameters(), clip_norm)
-        optimizer.step()
-
-        trace.append(loss.item())
+        loss_val = _train_step(ude_model, optimizer, Y_obs, t_eval, u_fn,
+                                sensor_var, clip_norm, is_lbfgs, l1_lambda, jac_lambda)
+        if not np.isfinite(loss_val):
+            print(f"  [{epoch:4d}] NaN/Inf — aborting training")
+            break
+        trace.append(loss_val)
         if epoch % 50 == 0:
-            print(f"  [{epoch:4d}] loss={loss.item():.6f}")
+            print(f"  [{epoch:4d}] loss={loss_val:.6f}")
 
     P_learned = ude_model.neuronal.P.detach()
 
@@ -263,10 +305,7 @@ def main(config_path: str):
         S_final, Y_pred = ude_model.simulate(u=u_fn, t_eval=t_eval)
 
     # ── effective connectivity via Jacobian ───────────────────────
-    X_mean  = S_final.mean(0).reshape(9, l)
-    S0_mean = ude_model.neuronal.sigmoid(X_mean[0])
-    u_mean  = torch.zeros(m, device=device)
-    CF_eff, CB_eff = effective_connectivity(ude_model, S0_mean, u_mean)
+    CF_eff, CB_eff = ude_model.effective_connectivity(S_final, u_fn, t_eval)
     _t("effective connectivity", t0); t0 = time.perf_counter()
 
     # ── dynamics contribution (only when MAP was run) ─────────────
