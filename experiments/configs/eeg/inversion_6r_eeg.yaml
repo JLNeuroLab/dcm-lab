@@ -1,16 +1,9 @@
-name: multistart_ude_6r_linear
-
-device: cpu
+name: inversion_6r_eeg
 
 # ── shared dimensions ────────────────────────────────────────
 model:
   l: 6
   m: 2
-
-# ── MLP architecture ─────────────────────────────────────────
-mlp:
-  hidden_dim: 32
-  u_scale: 220.0
 
 # ── time and integration ─────────────────────────────────────
 simulation:
@@ -32,10 +25,11 @@ inputs:
     amplitudes: 60.0
 
 # ── true model (6-region linear chain) ───────────────────────
+# Forward:  0->1->2->3->4->5  (C_F[i+1, i] = 32)
+# Backward: 0<-1<-2<-3<-4<-5  (C_B[i, i+1] = 16)
+# Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
-    gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
@@ -65,47 +59,53 @@ true_model:
       - [0.0, 0.0]
       - [0.0, 0.0]
 
+# ── init model (inversion starting point) ────────────────────
+# deliberately wrong: half C_F, no backward, wrong P
+init_model:
+  neuronal:
+    C_F:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [16.0, 0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  16.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  16.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  16.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  16.0, 0.0]
+    C_B:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    C_L:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    P:
+      - [1.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 1.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+
+# ── priors ───────────────────────────────────────────────────
+priors:
+  sigma:
+    C_F: 20.0
+    C_B: 20.0
+    C_L: 1.0
+    P:   0.5
+
 # ── noise ────────────────────────────────────────────────────
 noise:
-  std: 0.1
+  std: 0.01
 
-# ── multi-start ──────────────────────────────────────────────
-multistart:
-  n_restarts: 10
-  epochs_per_restart: 30
-  optimizer:
-    method: lbfgs   # lbfgs or adam
-    lr: 1.0
-    max_iter: 5
-  clip_grad_norm: 1.0
-  normalized_loss: True
-  init:
-    C_F_scale: 64.0
-    C_B_scale: 32.0
-
-# ── full training on best restart ────────────────────────────
-training:
-  epochs: 10
-  l1_lambda: 0.0
-  jac_lambda: 0.0
-  clip_grad_norm: 1.0
-  normalized_loss: True
-  optimizer:
-    method: lbfgs    # lbfgs or adam
-    lr: 1.0
-    max_iter: 10
-  lr_schedule:
-    factor: 0.5
-    patience: 50
-    min_lr: 1.0e-6
-
-init:
-  P:
-    - [1.0, 1.0]
-    - [1.0, 1.0]
-    - [1.0, 1.0]
-    - [1.0, 1.0]
-    - [1.0, 1.0]
-    - [1.0, 1.0]
-
-freeze_P: False
+# ── optimizer ────────────────────────────────────────────────
+optimizer:
+  method: lbfgs
+  max_iter: 200
+  lr: 1.0

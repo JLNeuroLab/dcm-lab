@@ -74,6 +74,25 @@ class EEGCouplingUDE(nn.Module):
         dX = torch.stack([dx0, dx1, dx2, dx3, dx4, dx5, dx6, dx7, dx8])
         return dX.reshape(-1)
     
+    def effective_connectivity(
+        self,
+        S: torch.Tensor,       # (T, 9*l) full trajectory
+        u_fn,                  # input callable
+        t_eval: torch.Tensor,  # (T,) time points
+        stride: int = 10,      # subsample to avoid recomputing every step
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        Js = []
+        for i in range(0, len(S), stride):
+            X_t  = S[i].reshape(9, self.l)
+            S0_t = self.neuronal.sigmoid(X_t[0])
+            u_t  = torch.as_tensor(u_fn(float(t_eval[i])),
+                                    dtype=torch.float32, device=S.device)
+            J = torch.autograd.functional.jacobian(
+                    lambda s: self.mlp(s, u_t), S0_t)  # (2l, l)
+            Js.append(J)
+        J_mean = torch.stack(Js).mean(0)
+        return J_mean[:self.l].detach(), J_mean[self.l:].detach()
+
     def simulate(
         self,
         u: InputFn,

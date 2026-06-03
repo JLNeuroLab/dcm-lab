@@ -46,7 +46,16 @@ def _make_optimizer(params, opt_cfg: dict):
     return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
 
 
-def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0):
+def _jac_penalty(ude, jac_lambda, device):
+    """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
+    S0_fixed = torch.full((ude.l,), 0.5, device=device)
+    u_fixed  = torch.zeros(ude.m, device=device)
+    J = torch.autograd.functional.jacobian(
+            lambda s: ude.mlp(s, u_fixed), S0_fixed)
+    return jac_lambda * J.abs().mean()
+
+
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
     if is_lbfgs:
         def closure():
             optimizer.zero_grad()
@@ -57,34 +66,35 @@ def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_l
                     ude.neuronal.C_F.abs().mean() +
                     ude.neuronal.C_B.abs().mean()
                 )
+            if jac_lambda > 0.0:
+                loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
             loss.backward()
             return loss
         return optimizer.step(closure).item()
     else:
         _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
         loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        if l1_lambda > 0.0:
+            loss = loss + l1_lambda * (
+                ude.neuronal.C_F.abs().mean() +
+                ude.neuronal.C_B.abs().mean()
+            )
+        if jac_lambda > 0.0:
+            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
         optimizer.step()
         return loss.item()
 
-def effective_connectivity(model: EEGCouplingUDE, S0: torch.Tensor, u_t: torch.Tensor):
-    """Linearise MLP at (S0, u_t) → effective C_F (first l rows) and C_B (last l rows)."""
-    J = torch.autograd.functional.jacobian(
-        lambda s: model.mlp(s, u_t), S0
-    )  # (2*l, l)
-    l = model.l
-    return J[:l].detach(), J[l:].detach()
-
-def _build_ude(cfg, P_true, seed, device):
+def _build_ude(cfg, P_init, seed, device):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     l, m = cfg["model"]["l"], cfg["model"]["m"]
 
     params = JansenRitParametersTorch.with_defaults(l=l, m=m)
-    params.P = P_true.clone().cpu()
+    params.P = P_init.clone().cpu()
     neuronal = JansenRitNeuronal(params=params).to(device)
 
     #----- random initialization of extrinsic couplings
@@ -93,7 +103,8 @@ def _build_ude(cfg, P_true, seed, device):
         neuronal.C_B.data = torch.rand(l, l, device=device) * cfg["multistart"]["init"]["C_B_scale"]
     #----- freeze biophysical variables, only extrinsic coupling matrices are optimized
     neuronal.set_train_mode("biophysical_frozen")
-    neuronal.P.requires_grad = False
+    freeze_P = cfg.get("freeze_P", False)
+    neuronal.P.requires_grad = not freeze_P
     #----- Lead-field parametrization is kept fixed and not optimized
     observer = LeadFieldParametrization(l=l).to(device)
     for p in observer.parameters():
@@ -134,6 +145,13 @@ def main(config_path: str, best_seed_override: int | None = None):
     CL_true = model_true.neuronal.C_L.detach()
     P_true  = model_true.neuronal.P.detach()
 
+    _P_init_cfg = cfg.get("init", {}).get("P", None)
+    if _P_init_cfg is not None:
+        P_init = torch.tensor(_P_init_cfg, dtype=torch.float32, device=device)
+        print(f"Using P_init from config['init']['P']")
+    else:
+        P_init = P_true
+        print("Using P_init = P_true")
     noise_std = torch.tensor(cfg["noise"]["std"], device=device)
     Y_obs     = Y_true + noise_std * torch.randn_like(Y_true)
     _t("true model simulate", t0); t0 = time.perf_counter()
@@ -162,7 +180,7 @@ def main(config_path: str, best_seed_override: int | None = None):
         n_restarts = int(ms_cfg["n_restarts"])
         for seed in range(n_restarts):
             print(f"\n--- Restart {seed+1}/{n_restarts} (seed={seed}) ---")
-            ude       = _build_ude(cfg, P_true, seed, device)
+            ude       = _build_ude(cfg, P_init, seed, device)
             optimizer = _make_optimizer(ude.parameters(), ms_opt_cfg)
             trace     = []
 
@@ -218,10 +236,11 @@ def main(config_path: str, best_seed_override: int | None = None):
     full_clip   = float(train_cfg.get("clip_grad_norm", 1.0))
 
     ft_opt_cfg   = train_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
-    l1_lambda = float(train_cfg.get("l1_lambda", 0.0))
+    l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
+    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
     ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
-    ude_best  = _build_ude(cfg, P_true, best["seed"], device)
+    ude_best  = _build_ude(cfg, P_init, best["seed"], device)
     optimizer = _make_optimizer(ude_best.parameters(), ft_opt_cfg)
 
     sched_cfg = train_cfg.get("lr_schedule", {})
@@ -239,7 +258,7 @@ def main(config_path: str, best_seed_override: int | None = None):
 
     for epoch in range(full_epochs):
         loss_val = _train_step(ude_best, optimizer, Y_obs, t_eval, u_fn,
-                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda)
+                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, jac_lambda)
         if not np.isfinite(loss_val):
             print(f"  [{epoch:4d}] NaN/Inf — aborting full training")
             break
@@ -258,13 +277,7 @@ def main(config_path: str, best_seed_override: int | None = None):
     with torch.no_grad():
         S_final, Y_final = ude_best.simulate(u=u_fn, t_eval=t_eval)
 
-    X_mean  = S_final.mean(0).reshape(9, l)
-    S0_mean = ude_best.neuronal.sigmoid(X_mean[0])
-    u_mean  = torch.zeros(m, device=device)
-    J = torch.autograd.functional.jacobian(
-            lambda s: ude_best.mlp(s, u_mean), S0_mean)   # (2l, l)
-    CF_est = J[:l].detach()
-    CB_est = J[l:].detach()
+    CF_est, CB_est = ude_best.effective_connectivity(S_final, u_fn, t_eval)
     P_est  = ude_best.neuronal.P.detach()
     zeros_ll = np.zeros((l, l))
 
