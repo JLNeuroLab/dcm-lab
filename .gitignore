@@ -13,6 +13,8 @@ dist/
 .DS_Store
 .vscode/
 
+create_venv.sh
+job_neural_network.sbatch
 # Experiment outputs
 results/
 # Saved models 
