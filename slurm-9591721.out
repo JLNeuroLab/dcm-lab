@@ -1,0 +1,15 @@
+Device: cpu
+  [timing] design: 0.07s
+  [JansenRitNeuronal] coupling: linear
+  [timing] true model simulate: 0.14s
+  auto z_scale = 86.0792
+  NODE: hidden_dim=256, z_scale=86.0792, u_scale=220.0, adjoint=False
+  [timing] NODE build: 0.00s
+  Using sensor-normalized loss
+Training NODE (60 epochs)...
+  [   0] loss=20.004641  lr=1.00e+00
+  [  50] loss=0.397864  lr=1.00e+00
+  [timing] training: 89.37s
+✔ EEG diagnostics saved in: results/runs/2026-06-03_17-31-33_node_6r_eeg
+  [timing] diagnostics: 4.76s
+Done: results/runs/2026-06-03_17-31-33_node_6r_eeg

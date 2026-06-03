@@ -5,6 +5,11 @@ import json
 import torch
 import numpy as np
 
+
+import os, sys
+sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab"))
+sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab/src"))
+
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz
 from experiments.lib.utils import build_design_torch, build_eeg_model_torch
 from experiments.lib.diagnostics.diagnostics_eeg import save_eeg_diagnostics
@@ -14,7 +19,6 @@ from dcm.models.eeg.lead_field import LeadFieldParametrization
 from ude.hybrid.eeg_coupling_ude import EEGCouplingUDE
 from ml.mlp import EEGCouplingMLP
 
-import os
 import time
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
