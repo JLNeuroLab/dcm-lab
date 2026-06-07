@@ -233,3 +233,30 @@ def odeint_adjoint(
     from torchdiffeq import odeint_adjoint as _odeint_adjoint
     t = torch.as_tensor(t_eval, device=z0.device, dtype=z0.dtype)
     return _odeint_adjoint(f, z0, t, method=method, **kwargs)
+
+def get_integrator(name: str) -> Callable:
+    """Return an integrator callable by name.
+
+    Signature of the returned callable: ``(f, t_eval, z0) -> Tensor``.
+
+    Choices
+    -------
+    ``"euler"``         – Euler via torchdiffeq (fast, BPTT)
+    ``"rk4"``           – RK4 via torchdiffeq (accurate, BPTT)
+    ``"adjoint_euler"`` – adjoint + Euler inner solver (gradient-vanishing-free)
+    ``"adjoint_rk4"``   – adjoint + RK4 inner solver (accurate + adjoint)
+    """
+    name = name.lower()
+    if name == "euler":
+        return odeint_euler
+    elif name == "rk4":
+        return odeint_rk4
+    elif name in ("adjoint", "adjoint_euler"):
+        return lambda f, t_eval, z0, **kw: odeint_adjoint(f, t_eval, z0, method="euler", **kw)
+    elif name == "adjoint_rk4":
+        return lambda f, t_eval, z0, **kw: odeint_adjoint(f, t_eval, z0, method="rk4", **kw)
+    else:
+        raise ValueError(
+            f"Unknown integrator {name!r}. "
+            "Choose from: euler, rk4, adjoint_euler, adjoint_rk4"
+        )

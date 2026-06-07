@@ -10,6 +10,7 @@ from experiments.lib.diagnostics.diagnostics_eeg import save_eeg_diagnostics
 
 from dcm.models.eeg.neuronal_jansen_rit import JansenRitParametersTorch, JansenRitNeuronal
 from dcm.models.eeg.lead_field import LeadFieldParametrization
+from dcm.simulate.integrators import get_integrator
 from dcm.inference.objectives import EEGInferenceModel
 from dcm.inference.optim import map_estimation_torch
 from dcm.inference.likelihoods import gaussian_log_likelihood_torch
@@ -205,10 +206,17 @@ def main(config_path: str):
     mlp        = EEGCouplingMLP(l=l, m=m, hidden_dim=hidden_dim, u_scale=u_scale).to(device)
     print(f"  MLP: hidden_dim={hidden_dim}, u_scale={u_scale}")
 
+    integrator_name = cfg.get("simulation", {}).get("integrator", "euler")
+    integrator = get_integrator(integrator_name)
+    is_adjoint = "adjoint" in integrator_name
+    print(f"  Integrator: {integrator_name}")
+
     ude_model = EEGCouplingUDE(
         neuronal=neuronal,
         observer=observer,
         mlp=mlp,
+        integrator=integrator,
+        is_adjoint=is_adjoint,
     ).to(device)
     neuronal.set_train_mode("biophysical_frozen")       # fix all JR literature constants
     for p in observer.parameters():

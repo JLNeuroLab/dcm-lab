@@ -19,14 +19,16 @@ class EEGCouplingUDE(nn.Module):
                  observer: LeadFieldParametrization,
                  mlp: EEGCouplingMLP,
                  integrator=odeint_euler,
+                 is_adjoint: bool = False,
         ):
 
         super().__init__()
 
-        self.neuronal   = neuronal
-        self.observer   = observer
-        self.mlp        = mlp
-        self.integrator = integrator
+        self.neuronal    = neuronal
+        self.observer    = observer
+        self.mlp         = mlp
+        self.integrator  = integrator
+        self.is_adjoint  = is_adjoint
 
         self.l = neuronal.l
         self.m = neuronal.m
@@ -112,7 +114,11 @@ class EEGCouplingUDE(nn.Module):
             u_t = torch.as_tensor(u(t), device=z.device, dtype=z.dtype)
             return self.dynamics(t, z, u_t)
 
-        S = self.integrator(f, t_eval, z0)
+        if self.is_adjoint:
+            S = self.integrator(f, t_eval, z0,
+                                adjoint_params=tuple(self.parameters()))
+        else:
+            S = self.integrator(f, t_eval, z0)
         Y = torch.stack([self.observer(z) for z in S])
 
         return S, Y

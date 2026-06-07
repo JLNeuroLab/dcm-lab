@@ -11,6 +11,7 @@ from experiments.lib.diagnostics.diagnostics_eeg import save_eeg_diagnostics
 
 from dcm.models.eeg.neuronal_jansen_rit import JansenRitParametersTorch, JansenRitNeuronal
 from dcm.models.eeg.lead_field import LeadFieldParametrization
+from dcm.simulate.integrators import get_integrator
 from ude.hybrid.eeg_coupling_ude import EEGCouplingUDE
 from ml.mlp import EEGCouplingMLP
 
@@ -111,7 +112,13 @@ def _build_ude(cfg, P_init, seed, device):
         p.requires_grad = False
     
     mlp = EEGCouplingMLP(l=l, m=m, hidden_dim=cfg["mlp"]["hidden_dim"], u_scale=cfg["mlp"]["u_scale"]).to(device)
-    ude_model = EEGCouplingUDE(neuronal=neuronal, observer=observer, mlp=mlp).to(device)
+
+    integrator_name = cfg.get("simulation", {}).get("integrator", "euler")
+    print(f"integrator: {integrator_name}")
+    integrator = get_integrator(integrator_name)
+    is_adjoint = "adjoint" in integrator_name
+    ude_model = EEGCouplingUDE(neuronal=neuronal, observer=observer, mlp=mlp,
+                               integrator=integrator, is_adjoint=is_adjoint).to(device)
 
     return ude_model
 

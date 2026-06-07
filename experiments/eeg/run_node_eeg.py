@@ -84,7 +84,8 @@ def main(config_path: str):
         z_scale = float(S_true.std())
         print(f"  auto z_scale = {z_scale:.4f}")
 
-    use_adjoint = bool(cfg.get("adjoint", False))
+    integrator_name = cfg.get("simulation", {}).get("integrator", "euler")
+    use_adjoint = "adjoint" in integrator_name
 
     neuronal   = EEGNeuralMLP(l=l, m=m, hidden_dim=hidden_dim,
                                z_scale=z_scale, u_scale=u_scale).to(device)
@@ -93,7 +94,7 @@ def main(config_path: str):
         p.requires_grad = False
     node_model = EEGNeuralODE(neuronal=neuronal, observer=observer,
                                adjoint=use_adjoint).to(device)
-    print(f"  NODE: hidden_dim={hidden_dim}, z_scale={z_scale:.4f}, u_scale={u_scale}, adjoint={use_adjoint}")
+    print(f"  NODE: hidden_dim={hidden_dim}, z_scale={z_scale:.4f}, u_scale={u_scale}, integrator={integrator_name}")
     _t("NODE build", t0); t0 = time.perf_counter()
 
     # ── warm-start: supervised regression on JR vector field ─────
