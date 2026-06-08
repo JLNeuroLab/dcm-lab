@@ -4,8 +4,12 @@ numpy
 scipy
 =======
 numpy==1.26
+<<<<<<< HEAD
 scipy==1.11
 >>>>>>> 3020506 (requirements.txt)
+=======
+scipy
+>>>>>>> fce26d8 (Update requirements.txt -->scipy version did not work beforehand)
 pandas
 matplotlib
 tqdm
