@@ -8,7 +8,11 @@ import numpy as np
 import os, sys
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab"))
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab/src"))
+<<<<<<< HEAD
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab/experiments"))
+=======
+
+>>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz
 from experiments.lib.utils import build_design_torch, build_eeg_model_torch
 from experiments.lib.diagnostics.diagnostics_eeg import save_eeg_diagnostics
@@ -49,6 +53,7 @@ def _make_optimizer(params, opt_cfg: dict):
             line_search_fn='strong_wolfe'
         )
     return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
+<<<<<<< HEAD
 
 def _jac_penalty(ude, jac_lambda, device):
     """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
@@ -107,7 +112,48 @@ def _build_node(cfg, z_scale, seed, device):
         p.requires_grad = False
     return EEGNeuralODE(neuronal=neuronal, observer=observer, adjoint=use_adjoint).to(device)
 
+=======
+>>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 
+def _jac_penalty(ude, jac_lambda, device):
+    """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
+    S0_fixed = torch.full((ude.l,), 0.5, device=device)
+    u_fixed  = torch.zeros(ude.m, device=device)
+    J = torch.autograd.functional.jacobian(
+            lambda s: ude.mlp(s, u_fixed), S0_fixed)
+    return jac_lambda * J.abs().mean()
+
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
+    if is_lbfgs:
+        def closure():
+            optimizer.zero_grad()
+            _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+            loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+            if l1_lambda > 0.0:
+                loss = loss + l1_lambda * (
+                    ude.neuronal.C_F.abs().mean() +
+                    ude.neuronal.C_B.abs().mean()
+                )
+            if jac_lambda > 0.0:
+                loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
+            loss.backward()
+            return loss
+        return optimizer.step(closure).item()
+    else:
+        _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+        loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        if l1_lambda > 0.0:
+            loss = loss + l1_lambda * (
+                ude.neuronal.C_F.abs().mean() +
+                ude.neuronal.C_B.abs().mean()
+            )
+        if jac_lambda > 0.0:
+            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
+        optimizer.step()
+        return loss.item()
 # ============================================================
 # MAIN
 # ============================================================
@@ -301,6 +347,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         _t("warm-start", t0); t0 = time.perf_counter()
 
     # ── training ─────────────────────────────────────────────────
+<<<<<<< HEAD
     train_cfg  = cfg["training"]
     ft_opt_cfg = train_cfg.get("optimizer", {"method": "adam", "lr": train_cfg.get("lr", 1e-3)})
     optimizer  = _make_optimizer(node_model.parameters(), ft_opt_cfg)
@@ -310,6 +357,19 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
     norm_loss  = train_cfg.get("normalized_loss", False)
+=======
+    train_cfg = cfg["training"]
+    ft_opt_cfg = train_cfg.get("optimizer", {"method": "adam", "lr": train_cfg.get("lr", 1e-3)})
+    optimizer = _make_optimizer(node_model.parameters(), ft_opt_cfg)
+    is_lbfgs = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
+    clip_norm     = float(train_cfg.get("clip_grad_norm", 1.0))
+    epochs        = int(train_cfg["epochs"])
+    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
+    l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
+    clip_norm = float(train_cfg.get("clip_grad_norm", 1.0))
+    epochs    = int(train_cfg["epochs"])
+    norm_loss = train_cfg.get("normalized_loss", False)
+>>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 
     sched_cfg  = train_cfg.get("lr_schedule", {})
     scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(
