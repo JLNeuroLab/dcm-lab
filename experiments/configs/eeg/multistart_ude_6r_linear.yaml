@@ -35,7 +35,7 @@ inputs:
 # ── true model (6-region linear chain) ───────────────────────
 true_model:
   neuronal:
-    coupling_nonlinearity: input_modulated
+    coupling_nonlinearity: linear
     gain_alpha: 0.03
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
