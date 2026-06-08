@@ -12,6 +12,8 @@ dist/
 .ipynb_checkpoints/
 .DS_Store
 .vscode/
+*.sbatch
+create_venv.sh
 
 # Experiment outputs
 results/
