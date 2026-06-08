@@ -1,15 +1,6 @@
 pyyaml
-<<<<<<< HEAD
-numpy
-scipy
-=======
 numpy==1.26
-<<<<<<< HEAD
-scipy==1.11
->>>>>>> 3020506 (requirements.txt)
-=======
 scipy
->>>>>>> fce26d8 (Update requirements.txt -->scipy version did not work beforehand)
 pandas
 matplotlib
 tqdm
@@ -19,11 +10,6 @@ ruff
 pytest
 # GPU version — change cu124 to cpu if no GPU
 torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
-<<<<<<< HEAD
-jax[cpu]
-numpyro
-=======
 jax[cpu]==0.4.26
 numpyro==0.13.2
->>>>>>> 3020506 (requirements.txt)
 torchdiffeq==0.2.5

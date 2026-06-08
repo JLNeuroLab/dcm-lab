@@ -1,0 +1,105 @@
+name: multistart_node_6r
+
+device: cpu
+
+# ── shared dimensions ────────────────────────────────────────
+model:
+  l: 6
+  m: 2
+
+# ── MLP / NODE architecture ───────────────────────────────────
+mlp:
+  hidden_dim: 128
+  u_scale: 220.0
+  z_scale: 1.0     # set to 1.0 to trigger auto-scaling from true trajectory
+
+# ── time and integration ─────────────────────────────────────
+simulation:
+  T: 0.5
+  dt: 0.001
+  integrator: euler
+
+# ── inputs ───────────────────────────────────────────────────
+inputs:
+  names: [u0, u1]
+  u0:
+    type: boxcar
+    onsets: [0.0]
+    durations: [2.0]
+    amplitudes: 220.0
+  u1:
+    type: boxcar
+    onsets: [0.30, 0.70, 1.20, 1.60]
+    durations: [0.05, 0.05, 0.05, 0.05]
+    amplitudes: 60.0
+
+# ── true model (6-region linear chain) ───────────────────────
+true_model:
+  neuronal:
+    coupling_nonlinearity: input_modulated
+    gain_alpha: 0.03
+    C_F:
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+      - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
+      - [0.0,  32.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  32.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  32.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  32.0, 0.0]
+    C_B:
+      - [0.0,  16.0, 0.0,  0.0,  0.0,  0.0]
+      - [0.0,  0.0,  16.0, 0.0,  0.0,  0.0]
+      - [0.0,  0.0,  0.0,  16.0, 0.0,  0.0]
+      - [0.0,  0.0,  0.0,  0.0,  16.0, 0.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  16.0]
+      - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
+    C_L:
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    P:
+      - [1.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+      - [0.0, 1.0]
+      - [0.0, 0.0]
+      - [0.0, 0.0]
+
+# ── noise ────────────────────────────────────────────────────
+noise:
+  std: 0.1
+
+# ── multi-start ──────────────────────────────────────────────
+multistart:
+  n_restarts: 8
+  epochs_per_restart: 30
+  optimizer:
+    method: adam
+    lr: 5e-3
+    max_iter: 20
+  clip_grad_norm: 1.0
+  normalized_loss: True
+
+# ── warm-start on best restart ────────────────────────────────
+warmstart:
+  enabled: False
+  steps: 1000
+  lr: 1.0e-3
+
+# ── full training on best restart ────────────────────────────
+training:
+  epochs: 100
+  l1_lambda: 0.0
+  jac_lambda: 0.0
+  clip_grad_norm: 1.0
+  normalized_loss: True
+  optimizer:
+    method: adam
+    lr: 5.0e-3
+    max_iter: 20
+  lr_schedule:
+    factor: 0.5
+    patience: 80
+    min_lr: 1.0e-6
