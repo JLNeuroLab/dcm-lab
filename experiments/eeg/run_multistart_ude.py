@@ -56,37 +56,45 @@ def _jac_penalty(ude, jac_lambda, device):
     return jac_lambda * J.abs().mean()
 
 
-def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
-    if is_lbfgs:
-        def closure():
-            optimizer.zero_grad()
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0, chunk_size=0):
+
+    def _compute():
+        optimizer.zero_grad()
+        if chunk_size > 0:
+            n, total, z0, n_chunks = len(t_eval), 0.0, None, 0
+            for start in range(0, n - 1, chunk_size):
+                end = min(start + chunk_size + 1, n)
+                S_c, Y_c = ude.simulate(u=u_fn, t_eval=t_eval[start:end], z0=z0)
+                loss = ((Y_c - Y_obs[start:end]) ** 2 / sensor_var).mean()
+                if l1_lambda > 0.0:
+                    loss = loss + l1_lambda * (ude.neuronal.C_F.abs().mean() + ude.neuronal.C_B.abs().mean())
+                if jac_lambda > 0.0:
+                    loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
+                loss.backward()
+                total += loss.item()
+                n_chunks += 1
+                z0 = S_c[-1].detach() # truncate gradient here
+            return total / n_chunks  # averaged loss across chunks
+
+        else:
             _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
             loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
             if l1_lambda > 0.0:
-                loss = loss + l1_lambda * (
-                    ude.neuronal.C_F.abs().mean() +
-                    ude.neuronal.C_B.abs().mean()
-                )
+                loss = loss + l1_lambda * (ude.neuronal.C_F.abs().mean() + ude.neuronal.C_B.abs().mean())
             if jac_lambda > 0.0:
                 loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
             loss.backward()
-            return loss
+            return loss.item()
+
+    if is_lbfgs:
+        def closure():
+            return torch.tensor(_compute())
         return optimizer.step(closure).item()
     else:
-        _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
-        loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
-        if l1_lambda > 0.0:
-            loss = loss + l1_lambda * (
-                ude.neuronal.C_F.abs().mean() +
-                ude.neuronal.C_B.abs().mean()
-            )
-        if jac_lambda > 0.0:
-            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
-        optimizer.zero_grad()
-        loss.backward()
+        loss_val = _compute()
         torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
         optimizer.step()
-        return loss.item()
+        return loss_val
 
 def _build_ude(cfg, P_init, seed, device):
     torch.manual_seed(seed)
@@ -256,7 +264,11 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     ft_opt_cfg   = train_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
     jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
+    chunk_size = int(train_cfg.get("chunk_size", 0))
     ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
+    if chunk_size > 0:
+        n_chunks = (len(t_eval) - 1) // chunk_size
+        print(f"  Chunked BPTT: chunk_size={chunk_size} ({n_chunks} chunks, gradient path {chunk_size} steps)")
     print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
     ude_best  = _build_ude(cfg, P_init, best["seed"], device)
     if best_state_dict is not None:
@@ -278,7 +290,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
 
     for epoch in range(full_epochs):
         loss_val = _train_step(ude_best, optimizer, Y_obs, t_eval, u_fn,
-                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, jac_lambda)
+                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, jac_lambda, chunk_size)
         if not np.isfinite(loss_val):
             print(f"  [{epoch:4d}] NaN/Inf — aborting full training")
             break
