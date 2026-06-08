@@ -115,7 +115,9 @@ def _build_ude(cfg, P_init, seed, device):
     for p in observer.parameters():
         p.requires_grad = False
     
-    mlp = EEGCouplingMLP(l=l, m=m, hidden_dim=cfg["mlp"]["hidden_dim"], u_scale=cfg["mlp"]["u_scale"]).to(device)
+    mlp = EEGCouplingMLP(l=l, m=m, hidden_dim=cfg["mlp"]["hidden_dim"],
+                         u_scale=cfg["mlp"]["u_scale"],
+                         output_scale=cfg["mlp"].get("output_scale", 1.0)).to(device)
 
     integrator_name = cfg.get("simulation", {}).get("integrator", "euler")
     print(f"integrator: {integrator_name}")
