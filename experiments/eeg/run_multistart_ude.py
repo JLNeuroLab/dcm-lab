@@ -123,7 +123,7 @@ def _build_ude(cfg, P_init, seed, device):
     return ude_model
 
 # ------ main ---------
-def main(config_path: str, best_seed_override: int | None = None):
+def main(config_path: str, best_seed_override: int | None = None, checkpoint_path: str | None = None):
     
     t0 = time.perf_counter()
 
@@ -174,8 +174,13 @@ def main(config_path: str, best_seed_override: int | None = None):
     if norm_loss:
         print("  Using sensor-normalized loss")
 
-    if best_seed_override is not None:
+    if checkpoint_path is not None:
+        print(f"\nSkipping multi-start — loading checkpoint: {checkpoint_path}")
+        best_state_dict = torch.load(checkpoint_path, map_location=device, weights_only=True)
+        best = {"seed": 0, "final_loss": float("nan"), "rmse": float("nan")}
+    elif best_seed_override is not None:
         print(f"\nSkipping multi-start — using seed={best_seed_override} directly.")
+        best_state_dict = None
         best = {"seed": best_seed_override, "final_loss": float("nan"), "rmse": float("nan")}
     else:
         results = []
@@ -185,6 +190,7 @@ def main(config_path: str, best_seed_override: int | None = None):
         print(f"  Optimizer: {ms_opt_cfg.get('method', 'adam').upper()}")
 
         n_restarts = int(ms_cfg["n_restarts"])
+        state_dicts = []
         for seed in range(n_restarts):
             print(f"\n--- Restart {seed+1}/{n_restarts} (seed={seed}) ---")
             ude       = _build_ude(cfg, P_init, seed, device)
@@ -207,12 +213,15 @@ def main(config_path: str, best_seed_override: int | None = None):
 
             results.append({"seed": seed, "final_loss": trace[-1] if trace else float("nan"),
                             "min_loss": min(trace) if trace else float("nan"), "rmse": rmse})
+            state_dicts.append({k: v.detach().clone() for k, v in ude.state_dict().items()})
             print(f"  => final={results[-1]['final_loss']:.4f}  min={results[-1]['min_loss']:.4f}  rmse={rmse:.4f}")
 
-        best = min(results, key=lambda r: r["final_loss"])
+        best_idx = min(range(len(results)), key=lambda i: results[i]["final_loss"])
+        best = results[best_idx]
+        best_state_dict = state_dicts[best_idx]
         print(f"\nBest: seed={best['seed']}, final_loss={best['final_loss']:.4f}, rmse={best['rmse']:.4f}")
 
-    if best_seed_override is None:
+    if best_seed_override is None and checkpoint_path is None:
         save_npz(
             run_dir / "multistart_summary.npz",
             seeds        = np.array([r["seed"]       for r in results]),
@@ -235,6 +244,8 @@ def main(config_path: str, best_seed_override: int | None = None):
         }
         with open(run_dir / "multistart_summary.json", "w") as f:
             json.dump(summary_json, f, indent=2)
+        torch.save(best_state_dict, run_dir / "best_multistart_checkpoint.pt")
+        print(f"  Checkpoint saved: {run_dir / 'best_multistart_checkpoint.pt'}")
     _t("multi-start", t0); t0 = time.perf_counter()
 
     # ── full training on best seed ────────────────────────────────
@@ -248,6 +259,8 @@ def main(config_path: str, best_seed_override: int | None = None):
     ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
     ude_best  = _build_ude(cfg, P_init, best["seed"], device)
+    if best_state_dict is not None:
+        ude_best.load_state_dict(best_state_dict)
     optimizer = _make_optimizer(ude_best.parameters(), ft_opt_cfg)
 
     sched_cfg = train_cfg.get("lr_schedule", {})
@@ -339,5 +352,15 @@ if __name__ == "__main__":
         default=None,
         help="Skip multi-start and run full training on this seed directly.",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to best_multistart_checkpoint.pt — skip multi-start and load saved weights.",
+    )
     args = parser.parse_args()
-    main(args.config, best_seed_override=args.best_seed)
+    main(args.config, best_seed_override=args.best_seed, checkpoint_path=args.checkpoint)
+
+# python -m experiments.eeg.run_multistart_ude `
+ # --config experiments/configs/eeg/multistart_ude_6r_adjoint.yaml `
+ # --checkpoint results/runs/2026-06-07_13-09-57_multistart_ude_6r_adjoint/best_multistart_checkpoint.pt

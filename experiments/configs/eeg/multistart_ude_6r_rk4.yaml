@@ -10,12 +10,12 @@ model:
 # ── MLP architecture ─────────────────────────────────────────
 mlp:
   hidden_dim: 128
-  u_scale: 100.0
+  u_scale: 150.0
 
 # ── time and integration ─────────────────────────────────────
 simulation:
   T: 0.5
-  dt: 0.004          # RK4 stable at 4x larger dt → 125 steps vs 500 with Euler
+  dt: 0.001          # same dt as Euler — RK4 improves accuracy not gradient flow
   integrator: rk4
 
 # ── inputs ───────────────────────────────────────────────────
@@ -25,7 +25,7 @@ inputs:
     type: boxcar
     onsets: [0.0]
     durations: [2.0]
-    amplitudes: 100.0
+    amplitudes: 150.0
   u1:
     type: boxcar
     onsets: [0.30, 0.70, 1.20, 1.60]
@@ -36,7 +36,7 @@ inputs:
 true_model:
   neuronal:
     coupling_nonlinearity: input_modulated
-    gain_alpha: 0.01          # factor 2.0 — within BPTT reach (RK4 still uses BPTT)
+    gain_alpha: 0.03          # factor 2.0 — within BPTT reach (RK4 still uses BPTT)
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
@@ -76,7 +76,8 @@ multistart:
   epochs_per_restart: 30
   optimizer:
     method: adam
-    lr: 5.0e-3
+    lr: 5e-3
+    max_iter: 10
   clip_grad_norm: 1.0
   normalized_loss: True
   init:
@@ -85,14 +86,15 @@ multistart:
 
 # ── full training on best restart ────────────────────────────
 training:
-  epochs: 700
+  epochs: 1000
   l1_lambda: 0.0
   jac_lambda: 0.0
   clip_grad_norm: 1.0
   normalized_loss: True
   optimizer:
     method: adam
-    lr: 5.0e-3
+    lr: 5e-3
+    max_iter: 10
   lr_schedule:
     factor: 0.5
     patience: 50
