@@ -16,7 +16,7 @@ mlp:
 simulation:
   T: 0.5
   dt: 0.001          # same dt as Euler — RK4 improves accuracy not gradient flow
-  integrator: euler
+  integrator: rk4
 
 # ── inputs ───────────────────────────────────────────────────
 inputs:
@@ -36,7 +36,7 @@ inputs:
 true_model:
   neuronal:
     coupling_nonlinearity: input_modulated
-    gain_alpha: 0.03          # factor 5.5 — chunked BPTT (chunk_size=20) handles this
+    gain_alpha: 0.03          # factor 2.0 — within BPTT reach (RK4 still uses BPTT)
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
@@ -87,7 +87,6 @@ multistart:
 # ── full training on best restart ────────────────────────────
 training:
   epochs: 1000
-  chunk_size: 20
   l1_lambda: 0.0
   jac_lambda: 0.0
   clip_grad_norm: 1.0
