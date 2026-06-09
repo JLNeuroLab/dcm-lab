@@ -8,11 +8,8 @@ import numpy as np
 import os, sys
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab"))
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab/src"))
-<<<<<<< HEAD
 sys.path.append(os.path.abspath("/home/student/r/rofritzsche/projects/dcm-lab/experiments"))
-=======
 
->>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz
 from experiments.lib.utils import build_design_torch, build_eeg_model_torch
 from experiments.lib.diagnostics.diagnostics_eeg import save_eeg_diagnostics
@@ -53,7 +50,6 @@ def _make_optimizer(params, opt_cfg: dict):
             line_search_fn='strong_wolfe'
         )
     return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
-<<<<<<< HEAD
 
 def _jac_penalty(ude, jac_lambda, device):
     """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
@@ -112,8 +108,6 @@ def _build_node(cfg, z_scale, seed, device):
         p.requires_grad = False
     return EEGNeuralODE(neuronal=neuronal, observer=observer, adjoint=use_adjoint).to(device)
 
-=======
->>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 
 def _jac_penalty(ude, jac_lambda, device):
     """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
@@ -347,7 +341,6 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         _t("warm-start", t0); t0 = time.perf_counter()
 
     # ── training ─────────────────────────────────────────────────
-<<<<<<< HEAD
     train_cfg  = cfg["training"]
     ft_opt_cfg = train_cfg.get("optimizer", {"method": "adam", "lr": train_cfg.get("lr", 1e-3)})
     optimizer  = _make_optimizer(node_model.parameters(), ft_opt_cfg)
@@ -357,19 +350,6 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
     norm_loss  = train_cfg.get("normalized_loss", False)
-=======
-    train_cfg = cfg["training"]
-    ft_opt_cfg = train_cfg.get("optimizer", {"method": "adam", "lr": train_cfg.get("lr", 1e-3)})
-    optimizer = _make_optimizer(node_model.parameters(), ft_opt_cfg)
-    is_lbfgs = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
-    clip_norm     = float(train_cfg.get("clip_grad_norm", 1.0))
-    epochs        = int(train_cfg["epochs"])
-    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
-    l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
-    clip_norm = float(train_cfg.get("clip_grad_norm", 1.0))
-    epochs    = int(train_cfg["epochs"])
-    norm_loss = train_cfg.get("normalized_loss", False)
->>>>>>> 7becab4d5bd41eb413c0e5696efb3f0bbf513629
 
     sched_cfg  = train_cfg.get("lr_schedule", {})
     scheduler  = torch.optim.lr_scheduler.ReduceLROnPlateau(

@@ -73,13 +73,14 @@ class EEGNeuralMLP(nn.Module):
     """
 
     def __init__(self, l: int, m: int, hidden_dim: int = 256,
-                 z_scale: float = 1.0, u_scale: float = 1.0):
+                 z_scale: float = 1.0, u_scale: float = 1.0, output_scale: float = 1.0):
         super().__init__()
         self.l = l
         self.m = m
         self.register_buffer("z_scale", torch.tensor(z_scale, dtype=torch.float32))
         self.register_buffer("u_scale", torch.tensor(u_scale, dtype=torch.float32))
-
+        self.output_scale = float(output_scale)
+        
         state_dim = 9 * l
         self.net = nn.Sequential(
             nn.Linear(state_dim + m, hidden_dim),
