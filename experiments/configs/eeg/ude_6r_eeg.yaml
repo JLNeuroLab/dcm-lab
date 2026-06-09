@@ -85,7 +85,7 @@ init:
       - [0.0, 0.0]
 # ── UDE training ─────────────────────────────────────────────
 training:
-  epochs: 300
+  epochs: 500
   freeze_P: True
   l1_lambda: 0.0
   jac_lambda: 0.0
@@ -105,7 +105,7 @@ warmstart:
 
 # ── MAP pre-estimation ────────────────────────────────────────
 map_init:
-  enabled: False
+  enabled: True
   freeze_P_after_map: True
   init_model:
     neuronal:

@@ -15,9 +15,9 @@ mlp:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 2.0
+  T: 0.5
   dt: 0.001
-  integrator: adjoint_euler
+  integrator: euler
 
 # ── inputs ───────────────────────────────────────────────────
 inputs:
@@ -73,7 +73,7 @@ noise:
 
 # ── multi-start ──────────────────────────────────────────────
 multistart:
-  n_restarts: 8
+  n_restarts: 5
   epochs_per_restart: 30    # L-BFGS converges in ~20-30 epochs (each calls closure up to max_iter times)
   optimizer:
     method: adam
@@ -87,18 +87,19 @@ multistart:
 
 # ── full training on best restart ────────────────────────────
 training:
-  epochs: 100
+  epochs: 500
   l1_lambda: 0.0
-  jac_lambda: 0.0
+  jac_lambda: 0.1
+  jac_every: 10        # compute Jacobian penalty every N steps (1 = every step)
   clip_grad_norm: 1.0
   normalized_loss: True
   optimizer:
     method: adam
-    lr: 5e-3
+    lr: 1e-3                 # lower than multistart: T=2.0 gives ~4x larger gradients than T=0.5
     max_iter: 20
   lr_schedule:
     factor: 0.5
-    patience: 80             # allow enough epochs before reducing lr
+    patience: 40
     min_lr: 1.0e-6
 
 init:

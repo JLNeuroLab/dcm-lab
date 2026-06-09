@@ -258,6 +258,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     ft_opt_cfg   = train_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
     jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
+    jac_every  = int(train_cfg.get("jac_every",   1))
     ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
     ude_best  = _build_ude(cfg, P_init, best["seed"], device)
@@ -279,8 +280,10 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     full_lr_trace = []
 
     for epoch in range(full_epochs):
+        compute_jac = jac_lambda > 0.0 and epoch % jac_every == 0
+        effective_jac = jac_lambda if compute_jac else 0.0
         loss_val = _train_step(ude_best, optimizer, Y_obs, t_eval, u_fn,
-                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, jac_lambda)
+                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, effective_jac)
         if not np.isfinite(loss_val):
             print(f"  [{epoch:4d}] NaN/Inf — aborting full training")
             break
@@ -291,7 +294,10 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         full_trace.append(loss_val)
         full_lr_trace.append(current_lr)
         if epoch % 100 == 0:
-            print(f"  [{epoch:4d}] loss={loss_val:.6f}  lr={current_lr:.2e}")
+            with torch.no_grad():
+                _, Y_pred = ude_best.simulate(u=u_fn, t_eval=t_eval)
+                mse = ((Y_pred - Y_obs) ** 2 / sensor_var).mean().item()
+            print(f"  [{epoch:4d}] loss={loss_val:.6f}  mse={mse:.6f}  lr={current_lr:.2e}")
 
     _t("full training", t0); t0 = time.perf_counter()
 
