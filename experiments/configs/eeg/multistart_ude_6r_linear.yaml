@@ -88,7 +88,7 @@ multistart:
 training:
   epochs: 500
   l1_lambda: 0.0
-  jac_lambda: 0.0
+  l1_input_lambda: 0.0
   clip_grad_norm: 1.0
   normalized_loss: True
   optimizer:

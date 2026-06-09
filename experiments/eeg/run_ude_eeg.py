@@ -50,40 +50,32 @@ def _make_optimizer(params, opt_cfg: dict):
         )
     return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
 
-def _jac_penalty(ude, jac_lambda, device):
-    """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
-    S0_fixed = torch.full((ude.l,), 0.5, device=device)
-    u_fixed  = torch.zeros(ude.m, device=device)
-    J = torch.autograd.functional.jacobian(
-            lambda s: ude.mlp(s, u_fixed), S0_fixed)
-    return jac_lambda * J.abs().mean()
-
-def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, l1_input_lambda=0.0):
     if is_lbfgs:
         def closure():
             optimizer.zero_grad()
             _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
             loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+            if l1_input_lambda > 0.0:
+                loss = loss + l1_input_lambda * ude.mlp.net[0].weight[:, :ude.l].abs().sum()
             if l1_lambda > 0.0:
                 loss = loss + l1_lambda * (
                     ude.neuronal.C_F.abs().mean() +
                     ude.neuronal.C_B.abs().mean()
                 )
-            if jac_lambda > 0.0:
-                loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
             loss.backward()
             return loss
         return optimizer.step(closure).item()
     else:
         _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
         loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        if l1_input_lambda > 0.0:
+            loss = loss + l1_input_lambda * ude.mlp.net[0].weight[:, :ude.l].abs().sum()
         if l1_lambda > 0.0:
             loss = loss + l1_lambda * (
                 ude.neuronal.C_F.abs().mean() +
                 ude.neuronal.C_B.abs().mean()
             )
-        if jac_lambda > 0.0:
-            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
@@ -281,8 +273,8 @@ def main(config_path: str):
     is_lbfgs = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     clip_norm     = float(train_cfg.get("clip_grad_norm", 1.0))
     epochs        = int(train_cfg["epochs"])
-    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
+    l1_input_lambda = float(train_cfg.get("l1_input_lambda", 0.0))
 
     # normalized loss flag
     norm_loss     = train_cfg.get("normalized_loss", False)
@@ -297,7 +289,7 @@ def main(config_path: str):
 
     for epoch in range(epochs):
         loss_val = _train_step(ude_model, optimizer, Y_obs, t_eval, u_fn,
-                                sensor_var, clip_norm, is_lbfgs, l1_lambda, jac_lambda)
+                                sensor_var, clip_norm, is_lbfgs, l1_lambda, l1_input_lambda)
         if not np.isfinite(loss_val):
             print(f"  [{epoch:4d}] NaN/Inf — aborting training")
             break

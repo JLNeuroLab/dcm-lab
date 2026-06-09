@@ -47,41 +47,32 @@ def _make_optimizer(params, opt_cfg: dict):
     return torch.optim.Adam(params, lr=float(opt_cfg.get("lr", 1e-3)))
 
 
-def _jac_penalty(ude, jac_lambda, device):
-    """Jacobian sparsity penalty at a fixed operating point (sigmoid midpoint)."""
-    S0_fixed = torch.full((ude.l,), 0.5, device=device)
-    u_fixed  = torch.zeros(ude.m, device=device)
-    J = torch.autograd.functional.jacobian(
-            lambda s: ude.mlp(s, u_fixed), S0_fixed)
-    return jac_lambda * J.abs().mean()
-
-
-def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, jac_lambda=0.0):
+def _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, clip_norm, is_lbfgs, l1_lambda=0.0, l1_input_lambda=0.0):
     if is_lbfgs:
         def closure():
             optimizer.zero_grad()
             _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
             loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+            if l1_input_lambda > 0.0:
+                loss = loss + l1_input_lambda * ude.mlp.net[0].weight[:, :ude.l].abs().sum()
             if l1_lambda > 0.0:
                 loss = loss + l1_lambda * (
                     ude.neuronal.C_F.abs().mean() +
                     ude.neuronal.C_B.abs().mean()
                 )
-            if jac_lambda > 0.0:
-                loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
             loss.backward()
             return loss
         return optimizer.step(closure).item()
     else:
         _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
         loss = ((Y_pred - Y_obs) ** 2 / sensor_var).mean()
+        if l1_input_lambda > 0.0:
+            loss = loss + l1_input_lambda * ude.mlp.net[0].weight[:, :ude.l].abs().sum()
         if l1_lambda > 0.0:
             loss = loss + l1_lambda * (
                 ude.neuronal.C_F.abs().mean() +
                 ude.neuronal.C_B.abs().mean()
             )
-        if jac_lambda > 0.0:
-            loss = loss + _jac_penalty(ude, jac_lambda, Y_obs.device)
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(ude.parameters(), clip_norm)
@@ -257,8 +248,8 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
 
     ft_opt_cfg   = train_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
     l1_lambda  = float(train_cfg.get("l1_lambda",  0.0))
-    jac_lambda = float(train_cfg.get("jac_lambda", 0.0))
-    jac_every  = int(train_cfg.get("jac_every",   1))
+    l1_input_lambda = float(train_cfg.get("l1_input_lambda", 0.0))
+
     ft_is_lbfgs  = ft_opt_cfg.get("method", "adam").lower() == "lbfgs"
     print(f"\nFull training on best seed={best['seed']} ({full_epochs} epochs, {ft_opt_cfg.get('method','adam').upper()})...")
     ude_best  = _build_ude(cfg, P_init, best["seed"], device)
@@ -280,10 +271,8 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     full_lr_trace = []
 
     for epoch in range(full_epochs):
-        compute_jac = jac_lambda > 0.0 and epoch % jac_every == 0
-        effective_jac = jac_lambda if compute_jac else 0.0
         loss_val = _train_step(ude_best, optimizer, Y_obs, t_eval, u_fn,
-                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, effective_jac)
+                               sensor_var, full_clip, ft_is_lbfgs, l1_lambda, l1_input_lambda)
         if not np.isfinite(loss_val):
             print(f"  [{epoch:4d}] NaN/Inf — aborting full training")
             break
@@ -294,10 +283,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         full_trace.append(loss_val)
         full_lr_trace.append(current_lr)
         if epoch % 100 == 0:
-            with torch.no_grad():
-                _, Y_pred = ude_best.simulate(u=u_fn, t_eval=t_eval)
-                mse = ((Y_pred - Y_obs) ** 2 / sensor_var).mean().item()
-            print(f"  [{epoch:4d}] loss={loss_val:.6f}  mse={mse:.6f}  lr={current_lr:.2e}")
+            print(f"  [{epoch:4d}] loss={loss_val:.6f}  lr={current_lr:.2e}")
 
     _t("full training", t0); t0 = time.perf_counter()
 

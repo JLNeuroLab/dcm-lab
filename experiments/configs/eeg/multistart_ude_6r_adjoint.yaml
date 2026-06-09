@@ -36,7 +36,7 @@ inputs:
 # ── true model (6-region linear chain) ───────────────────────
 true_model:
   neuronal:
-    coupling_nonlinearity: input_modulated
+    coupling_nonlinearity: linear
     gain_alpha: 0.03          # modulation factor 5.5 — full nonlinear case
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
@@ -89,8 +89,7 @@ multistart:
 training:
   epochs: 500
   l1_lambda: 0.0
-  jac_lambda: 0.1
-  jac_every: 10        # compute Jacobian penalty every N steps (1 = every step)
+  l1_input_lambda: 0.0
   clip_grad_norm: 1.0
   normalized_loss: True
   optimizer:
