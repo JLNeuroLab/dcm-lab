@@ -99,6 +99,7 @@ def _build_node(cfg, z_scale, seed, device):
     m          = int(cfg["model"]["m"])
     hidden_dim = int(cfg.get("mlp", {}).get("hidden_dim", 256))
     u_scale    = float(cfg.get("mlp", {}).get("u_scale", 1.0))
+    output_scale = float(cfg.get("mlp", {}).get("output_scale", 1.0))
     integrator_name = cfg.get("simulation", {}).get("integrator", "euler")
     use_adjoint = "adjoint" in integrator_name
     neuronal   = EEGNeuralMLP(l=l, m=m, hidden_dim=hidden_dim,
@@ -291,9 +292,11 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         # ── single-run (no multistart section in config) ──────────
         hidden_dim = int(cfg.get("mlp", {}).get("hidden_dim", 256))
         u_scale    = float(cfg.get("mlp", {}).get("u_scale", 1.0))
+        output_scale = float(cfg.get("mlp", {}).get("output_scale", 1.0))
         use_adjoint = "adjoint" in integrator_name
+        
         neuronal   = EEGNeuralMLP(l=l, m=m, hidden_dim=hidden_dim,
-                                   z_scale=z_scale, u_scale=u_scale).to(device)
+                                   z_scale=z_scale, u_scale=u_scale, output_scale=output_scale).to(device)
         observer   = LeadFieldParametrization(l=l).to(device)
         for p in observer.parameters():
             p.requires_grad = False
@@ -429,7 +432,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="experiments/configs/eeg/node_6r_eeg.yaml",
+        default="experiments/configs/eeg/multistart_node_6r.yaml",
     )
     parser.add_argument(
         "--best-seed",

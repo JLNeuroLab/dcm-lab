@@ -12,7 +12,7 @@ mlp:
   hidden_dim: 128
   u_scale: 220.0
   z_scale: 1.0     # set to 1.0 to trigger auto-scaling from true trajectory
-
+  output_scale: 100
 # ── time and integration ─────────────────────────────────────
 simulation:
   T: 0.5
@@ -36,7 +36,7 @@ inputs:
 # ── true model (6-region linear chain) ───────────────────────
 true_model:
   neuronal:
-    coupling_nonlinearity: input_modulated
+    coupling_nonlinearity: linear
     gain_alpha: 0.03
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
@@ -90,7 +90,7 @@ warmstart:
 
 # ── full training on best restart ────────────────────────────
 training:
-  epochs: 100
+  epochs: 500
   l1_lambda: 0.0
   jac_lambda: 0.0
   clip_grad_norm: 1.0

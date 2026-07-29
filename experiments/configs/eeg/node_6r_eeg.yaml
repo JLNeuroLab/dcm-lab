@@ -39,7 +39,7 @@ inputs:
 # Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
+    coupling_nonlinearity: input_modulated
     gain_alpha: 0.01
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
