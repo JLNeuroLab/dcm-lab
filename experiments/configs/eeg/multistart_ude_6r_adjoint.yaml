@@ -17,7 +17,7 @@ mlp:
 simulation:
   T: 0.5
   dt: 0.001
-  integrator: euler
+  integrator: adjoint_euler
 
 # ── inputs ───────────────────────────────────────────────────
 inputs:
@@ -36,7 +36,7 @@ inputs:
 # ── true model (6-region linear chain) ───────────────────────
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
+    coupling_nonlinearity: input_modulated
     gain_alpha: 0.03          # modulation factor 5.5 — full nonlinear case
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]

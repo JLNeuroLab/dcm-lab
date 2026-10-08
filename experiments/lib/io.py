@@ -27,10 +27,10 @@ def save_json(obj: dict, path: str | Path) -> None:
         json.dump(obj, f, indent=2)
 
 
-def make_run_dir(experiment: str, root: str | Path = "results/runs") -> Path:
+def make_run_dir(experiment: str, root: str | Path = "saved_models") -> Path:
     """
     Create a unique run folder:
-      results/runs/YYYY-mm-dd_HH-MM-SS_experiment/
+      saved_models/YYYY-mm-dd_HH-MM-SS_experiment/
         figures/
     """
     root = Path(root)
