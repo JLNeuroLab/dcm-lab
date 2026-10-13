@@ -265,9 +265,11 @@ def build_eeg_model_torch(cfg: dict, device=None) -> EEGForwardModel:
 
     nl = conn_cfg.get("coupling_nonlinearity", "linear")
     alpha = float(conn_cfg.get("gain_alpha", 1.0))
+    u_ref = float(conn_cfg.get("u_ref", 1.0))
     neuronal    = JansenRitNeuronal(params,
                                     coupling_nonlinearity=nl,
-                                    gain_alpha=alpha).to(device)
+                                    gain_alpha=alpha,
+                                    u_ref=u_ref).to(device)
     observation = LeadFieldParametrization(l=l, n_sensors=n_sensors).to(device)
 
     return EEGForwardModel(neuronal, observation).to(device)

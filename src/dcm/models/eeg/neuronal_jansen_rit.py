@@ -86,7 +86,8 @@ class JansenRitNeuronal(nn.Module):
     def __init__(self, 
                 params: JansenRitParametersTorch,
                 coupling_nonlinearity: str = "linear",
-                gain_alpha: float = 1.0
+                gain_alpha: float = 1.0,
+                u_ref: float = 1.0
             ):
 
         super().__init__()
@@ -95,6 +96,8 @@ class JansenRitNeuronal(nn.Module):
         self.m = params.m
         self.coupling_nonlinearity = coupling_nonlinearity
         self.gain_alpha = gain_alpha
+        self.u_ref = u_ref
+
         print(f"  [JansenRitNeuronal] coupling: {coupling_nonlinearity}"
         + (f", alpha={gain_alpha}" if coupling_nonlinearity != "linear" else ""))
 
@@ -165,7 +168,7 @@ class JansenRitNeuronal(nn.Module):
     
     def coupling_fn(self, S0: Tensor, u_t: Tensor):
         if self.coupling_nonlinearity == "input_modulated":
-            u_drive = (self.P @ u_t).norm()
+            u_drive = (self.P @ u_t).norm() / self.u_ref
             return S0 * (1.0 + self.gain_alpha * u_drive)
         return S0
     

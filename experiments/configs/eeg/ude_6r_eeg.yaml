@@ -15,7 +15,7 @@ mlp:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 2.0
+  T: 0.5
   dt: 0.001
   integrator: euler
 
@@ -39,8 +39,9 @@ inputs:
 # Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
-    gain_alpha: 0.03
+    coupling_nonlinearity: input_modulated
+    gain_alpha: 0.5
+    u_ref: 150
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
@@ -85,16 +86,16 @@ init:
       - [0.0, 0.0]
 # ── UDE training ─────────────────────────────────────────────
 training:
-  epochs: 300
+  epochs: 150
   freeze_P: True
   l1_lambda: 0.0
   l1_input_lambda: 0.0
   clip_grad_norm: 1.0
   normalized_loss: True
   optimizer:
-    method: adam    # lbfgs or adam
-    lr: 5e-3
-    max_iter: 10
+    method: lbfgs    # lbfgs or adam
+    lr: 1.0
+    max_iter: 20
   lr_schedule:
     factor: 0.5
     patience: 50

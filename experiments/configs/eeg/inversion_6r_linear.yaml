@@ -10,7 +10,7 @@ model:
 
 # ── time and integration ─────────────────────────────────────
 simulation:
-  T: 2.0
+  T: 0.5
   dt: 0.001
 
 # ── inputs ───────────────────────────────────────────────────
@@ -33,8 +33,9 @@ inputs:
 # Input:    region 0 <- u0, region 3 <- u1
 true_model:
   neuronal:
-    coupling_nonlinearity: linear
-    gain_alpha: 0.03
+    coupling_nonlinearity: input_modulated
+    gain_alpha: 0.5
+    u_ref: 150
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]
       - [32.0, 0.0,  0.0,  0.0,  0.0,  0.0]
