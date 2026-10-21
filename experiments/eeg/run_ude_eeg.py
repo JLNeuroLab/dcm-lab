@@ -306,7 +306,7 @@ def main(config_path: str):
         S_final, Y_pred = ude_model.simulate(u=u_fn, t_eval=t_eval)
 
     # ── effective connectivity via Jacobian ───────────────────────
-    CF_eff, CB_eff = ude_model.effective_connectivity(S_final, u_fn, t_eval)
+    CF_eff, CB_eff, CF_var, CB_var = ude_model.effective_connectivity(S_final, u_fn, t_eval)
     _t("effective connectivity", t0); t0 = time.perf_counter()
 
     # ── dynamics contribution (only when MAP was run) ─────────────
@@ -341,6 +341,7 @@ def main(config_path: str):
         trace=np.array(trace),
         CF_true=to_numpy(CF_true), CF_eff=to_numpy(CF_eff),
         CB_true=to_numpy(CB_true), CB_eff=to_numpy(CB_eff),
+        CF_var=to_numpy(CF_var),   CB_var=to_numpy(CB_var),
         P_true=to_numpy(P_true),   P_learned=to_numpy(P_learned),
     )
 
@@ -359,6 +360,7 @@ def main(config_path: str):
         CB_true=to_numpy(CB_true), CB_est=to_numpy(CB_eff),
         CL_true=to_numpy(CL_true), CL_est=zeros_ll,
         P_true=to_numpy(P_true),   P_est=to_numpy(P_learned),
+        CF_var=to_numpy(CF_var),   CB_var=to_numpy(CB_var),
         Y_map=to_numpy(Y_map) if Y_map is not None else None,
         dz_mlp=to_numpy(dz_mlp) if dz_mlp is not None else None,
         dz_map_on_ude=to_numpy(dz_map_on_ude) if dz_map_on_ude is not None else None,
