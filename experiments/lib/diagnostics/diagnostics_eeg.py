@@ -20,6 +20,7 @@ def save_eeg_diagnostics(
     CB_true, CB_est,
     CL_true, CL_est,
     P_true,  P_est,
+    CF_var=None, CB_var=None,
     Y_map=None,
     dz_mlp=None,
     dz_map_on_ude=None,
@@ -50,6 +51,21 @@ def save_eeg_diagnostics(
     plt.tight_layout()
     plt.savefig(fig_dir / "matrices.png", dpi=200)
     plt.close()
+
+    # ── Jacobian variance ─────────────────────────────────────────
+    if CF_var is not None and CB_var is not None:
+        CF_var = _to_np(CF_var)
+        CB_var = _to_np(CB_var)
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        im0 = axes[0].imshow(CF_var, cmap="hot", aspect="auto")
+        axes[0].set_title("C_F Jacobian variance")
+        plt.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
+        im1 = axes[1].imshow(CB_var, cmap="hot", aspect="auto")
+        axes[1].set_title("C_B Jacobian variance")
+        plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+        plt.tight_layout()
+        plt.savefig(fig_dir / "jacobian_variance.png", dpi=200)
+        plt.close()
 
     # ── inputs ────────────────────────────────────────────────────
     U = np.array(U)
@@ -218,5 +234,9 @@ def save_eeg_diagnostics(
             "mlp_map_coupling_ratio":  mlp_contrib,
         })
 
+    if CF_var is not None and CB_var is not None:
+        metrics["mean_CF_jacobian_var"] = float(CF_var.mean())
+        metrics["mean_CB_jacobian_var"] = float(CB_var.mean())
+        
     save_json(metrics, run_dir / "metrics.json")
     print("✔ EEG diagnostics saved in:", run_dir)

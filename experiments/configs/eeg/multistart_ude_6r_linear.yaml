@@ -37,7 +37,7 @@ inputs:
 true_model:
   neuronal:
     coupling_nonlinearity: input_modulated
-    gain_alpha: 0.5
+    gain_alpha: 0.3
     u_ref: 150
     C_F:
       - [0.0,  0.0,  0.0,  0.0,  0.0,  0.0]

@@ -92,8 +92,16 @@ class EEGCouplingUDE(nn.Module):
             J = torch.autograd.functional.jacobian(
                     lambda s: self.mlp(s, u_t), S0_t)  # (2l, l)
             Js.append(J)
-        J_mean = torch.stack(Js).mean(0)
-        return J_mean[:self.l].detach(), J_mean[self.l:].detach()
+        J_stack = torch.stack(Js)
+        J_mean = J_stack.mean(0)
+        J_var = J_stack.var(0)
+
+        CF_mean = J_mean[:self.l].detach()
+        CB_mean = J_mean[self.l:].detach()
+        CF_var  = J_var[:self.l].detach()
+        CB_var  = J_var[self.l:].detach()
+
+        return CF_mean, CB_mean, CF_var, CB_var
 
     def simulate(
         self,

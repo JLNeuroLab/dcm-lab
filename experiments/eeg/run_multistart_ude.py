@@ -291,7 +291,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
     with torch.no_grad():
         S_final, Y_final = ude_best.simulate(u=u_fn, t_eval=t_eval)
 
-    CF_est, CB_est = ude_best.effective_connectivity(S_final, u_fn, t_eval)
+    CF_est, CB_est, CF_var, CB_var = ude_best.effective_connectivity(S_final, u_fn, t_eval)
     P_est  = ude_best.neuronal.P.detach()
     zeros_ll = np.zeros((l, l))
 
@@ -307,6 +307,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         lr_trace   = np.array(full_lr_trace),
         CF_true    = to_numpy(CF_true),  CF_est = to_numpy(CF_est),
         CB_true    = to_numpy(CB_true),  CB_est = to_numpy(CB_est),
+        CF_var     = to_numpy(CF_var), CB_var = to_numpy(CB_var),
         P_true     = to_numpy(P_true),   P_est  = to_numpy(P_est),
         best_seed  = np.array(best["seed"]),
     )
@@ -324,6 +325,7 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         CB_true    = to_numpy(CB_true),  CB_est = to_numpy(CB_est),
         CL_true    = to_numpy(CL_true),  CL_est = zeros_ll,
         P_true     = to_numpy(P_true),   P_est  = to_numpy(P_est),
+        CF_var     = to_numpy(CF_var),   CB_var = to_numpy(CB_var),
     )
     _t("diagnostics", t0)
     print("Done:", run_dir)
