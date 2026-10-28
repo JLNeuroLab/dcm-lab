@@ -4,6 +4,7 @@ import argparse
 import json
 import torch
 import numpy as np
+from joblib import Parallel, delayed
 
 from experiments.lib.io import load_yaml, save_yaml, make_run_dir, save_npz
 from experiments.lib.utils import build_design_torch, build_eeg_model_torch
@@ -115,6 +116,39 @@ def _build_ude(cfg, P_init, seed, device):
 
     return ude_model
 
+def _run_one_restart(seed: int, cfg: dict, P_init_np: np.ndarray,
+                     Y_obs_np: np.ndarray, Y_true_np: np.ndarray,
+                     t_eval_np: np.ndarray) -> dict:
+    torch.set_num_threads(1)
+    device = torch.device("cpu")
+    P_init = torch.from_numpy(P_init_np)
+    Y_obs  = torch.from_numpy(Y_obs_np)
+    Y_true = torch.from_numpy(Y_true_np)
+    t_eval = torch.from_numpy(t_eval_np)
+    design = build_design_torch(cfg, device=device)
+    u_fn   = design.callable()
+    sensor_var = Y_obs.var(dim=0, keepdim=True).detach() + 1e-8
+    ms_cfg     = cfg["multistart"]
+    ms_opt_cfg = ms_cfg.get("optimizer", {"method": "adam", "lr": 1e-3})
+    ms_clip    = float(ms_cfg.get("clip_grad_norm", 1.0))
+    is_lbfgs   = ms_opt_cfg.get("method", "adam").lower() == "lbfgs"
+    ude       = _build_ude(cfg, P_init, seed, device)
+    optimizer = _make_optimizer(ude.parameters(), ms_opt_cfg)
+    trace     = []
+    for epoch in range(ms_cfg["epochs_per_restart"]):
+        loss_val = _train_step(ude, optimizer, Y_obs, t_eval, u_fn, sensor_var, ms_clip, is_lbfgs)
+        if not np.isfinite(loss_val):
+            break
+        trace.append(loss_val)
+    with torch.no_grad():
+        _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
+    rmse = ((Y_pred - Y_true) ** 2).mean().sqrt().item()
+    state_dict = {k: v.detach().clone() for k, v in ude.state_dict().items()}
+    return {"seed": seed, "final_loss": trace[-1] if trace else float("nan"),
+            "min_loss": min(trace) if trace else float("nan"), "rmse": rmse,
+            "state_dict": state_dict}
+
+
 # ------ main ---------
 def main(config_path: str, best_seed_override: int | None = None, checkpoint_path: str | None = None):
     
@@ -183,35 +217,26 @@ def main(config_path: str, best_seed_override: int | None = None, checkpoint_pat
         print(f"  Optimizer: {ms_opt_cfg.get('method', 'adam').upper()}")
 
         n_restarts = int(ms_cfg["n_restarts"])
-        state_dicts = []
-        for seed in range(n_restarts):
-            print(f"\n--- Restart {seed+1}/{n_restarts} (seed={seed}) ---")
-            ude       = _build_ude(cfg, P_init, seed, device)
-            optimizer = _make_optimizer(ude.parameters(), ms_opt_cfg)
-            trace     = []
+        n_jobs = min(n_restarts, int(os.environ.get("SLURM_CPUS_PER_TASK", 1)))
+        print(f"  Running {n_restarts} restarts on {n_jobs} parallel workers...")
 
-            for epoch in range(ms_cfg["epochs_per_restart"]):
-                loss_val = _train_step(ude, optimizer, Y_obs, t_eval, u_fn,
-                                       sensor_var, ms_clip, is_lbfgs)
-                if not np.isfinite(loss_val):
-                    print(f"  [{epoch:4d}] NaN/Inf — aborting restart")
-                    break
-                trace.append(loss_val)
-                if epoch % 50 == 0:
-                    print(f"  [{epoch:4d}] loss={loss_val:.6f}")
+        raw = Parallel(n_jobs=n_jobs)(
+            delayed(_run_one_restart)(
+                seed, cfg,
+                to_numpy(P_init), to_numpy(Y_obs), to_numpy(Y_true), to_numpy(t_eval)
+            )
+            for seed in range(n_restarts)
+        )
 
-            with torch.no_grad():
-                _, Y_pred = ude.simulate(u=u_fn, t_eval=t_eval)
-            rmse = ((Y_pred - Y_true) ** 2).mean().sqrt().item()
-
-            results.append({"seed": seed, "final_loss": trace[-1] if trace else float("nan"),
-                            "min_loss": min(trace) if trace else float("nan"), "rmse": rmse})
-            state_dicts.append({k: v.detach().clone() for k, v in ude.state_dict().items()})
-            print(f"  => final={results[-1]['final_loss']:.4f}  min={results[-1]['min_loss']:.4f}  rmse={rmse:.4f}")
+        results     = [{k: v for k, v in r.items() if k != "state_dict"} for r in raw]
+        state_dicts = [r["state_dict"] for r in raw]
+        for r in results:
+            print(f"  seed={r['seed']}  final={r['final_loss']:.4f}  min={r['min_loss']:.4f}  rmse={r['rmse']:.4f}")
 
         best_idx = min(range(len(results)), key=lambda i: results[i]["final_loss"])
         best = results[best_idx]
         best_state_dict = state_dicts[best_idx]
+        torch.set_num_threads(n_jobs)
         print(f"\nBest: seed={best['seed']}, final_loss={best['final_loss']:.4f}, rmse={best['rmse']:.4f}")
 
     if best_seed_override is None and checkpoint_path is None:
